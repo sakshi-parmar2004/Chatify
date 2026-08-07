@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const env_variable={
+    PORT: process.env.PORT,
+    NODE_ENV: process.env.NODE_ENV,
     MONGO_URI: process.env.MONGO_URI,
     JWT_SECRET: process.env.JWT_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
