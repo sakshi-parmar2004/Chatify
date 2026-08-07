@@ -1,15 +1,11 @@
 import express from "express";
+import { loginUser , registerUser } from "../controller/auth.controller.js";
 
 const authRouter = express.Router();
 
-authRouter.get("/login", (req, res) => {
-  res.send("Login route");
-}); 
+authRouter.post("/login",loginUser); 
 
-authRouter.get("/register", (req, res) => {
-  res.send("Register route");
-}
-);
+authRouter.post("/register", registerUser); 
 
 authRouter.get("/logout", (req, res) => {
   res.send("Logout route");
