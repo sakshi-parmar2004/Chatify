@@ -52,12 +52,13 @@ export const loginUser = async (req, res) => {
   
   try {
     const user = await User.findOne({ email });
+    //never reveal whether the email or password is incorrect to avoid giving hints to potential attackers
     if(!user) {
-      return res.status(400).json({ message: "Invalid email" });
+      return res.status(400).json({ message: "Invalid Credentials" });
     }
      const isMatch = await bcrypt.compare(password, user.password);
     if(!isMatch) {
-      return res.status(400).json({ message: "Wrong  Password" });
+      return res.status(400).json({ message: "Invalid Credentials" });
     }
     generateToken(user, res);
     res.status(200).json({ message: "Login successful", user });
@@ -68,3 +69,14 @@ catch (error) {
     res.status(500).json({ message: "Server error" });
 }
 }
+
+export const logoutUser = (_, res) => { 
+
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",  
+    sameSite: "strict"
+  });
+  res.status(200).json({ message: "Logout successful" });
+}
+
