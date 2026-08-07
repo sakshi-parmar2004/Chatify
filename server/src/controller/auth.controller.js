@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import { generateToken } from "../lib/generateToken.js";
+import { sendWelcomeEmail } from "../lib/email.js";
 
 export const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -27,6 +28,12 @@ const hashedPassword = await bcrypt.hash(password, 10);
     return res.status(400).json({ message: "User registration failed" });
   }
   generateToken(newUser, res);
+  try {
+  await sendWelcomeEmail(name, email);
+  }
+  catch (error) {
+    console.error(`Error sending welcome email: ${error.message}`);
+  }
   res.status(201).json({ message: "User registered successfully", user: newUser });
 
     }
