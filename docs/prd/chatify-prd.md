@@ -1,6 +1,7 @@
 # Chatify — Product Requirements
 
-> **Status: 34 of 34 shipped, across 6 phases.** All phases are complete; see
+> **Status: 34 of 42 shipped, across 7 phases.** Phase 6 (design system and
+> observability) is in progress. All phases are complete; see
 > [Where Chatify is today](#where-chatify-is-today) for what still needs configuration.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
@@ -80,6 +81,8 @@ or `BE-*`, `FE-*` (bugs) namespaces:
 | `MED-` | Rich media and files |
 | `NTF-` | Notifications and presence |
 | `DEC-` | Decision log |
+| `UIX-` | Design system, theming, wallpaper |
+| `OBS-` | Logging and observability |
 
 Numbers are stable and never reused. A cut feature is marked `⬛ Dropped` and keeps its row.
 
@@ -187,7 +190,7 @@ Stated up front, because scope creep in a chat app is relentless. Each with its 
 | **Channels, workspaces, orgs, federation** | [`DEC-09`](#dec-09--conversation-type-as-a-single-field) leaves the door open with a `type` field. Walking through it is out of scope. |
 | **Bots, webhooks, public API** | No audience for it. |
 | **Native mobile apps** | A PWA with web push ([`NTF-01`](#ntf-01--web-push--phase-5)) is the ceiling. |
-| **Moderation, compliance export, retention policy, admin console** | Presupposes an operator role the product does not have. |
+| **Moderation, compliance export, retention policy** | Presupposes an operator role the product does not have. ~~Admin console~~ — **amended, see `DEC-12`.** |
 | **Offline-first / CRDT sync** | Contradicts principle 3. The server stays authoritative. |
 | **Internationalisation** | English only until there is a second-language user. |
 | **Horizontal scaling of the socket tier** | **Deferred, not rejected.** The in-memory socket map binds the app to a single Node process. **Tripwire: revisit the moment a second process is needed**, at which point the answer is the Socket.IO Redis adapter — not a redesign. |
@@ -889,6 +892,154 @@ expressible without leaking to people the user does not talk to.
 
 ---
 
+## UIX — Design system and theming
+
+### UIX-01 — Design tokens — Phase 6
+
+**What** Replace 234 hardcoded palette classes with semantic CSS custom properties that a
+runtime theme can swap.
+
+**Why now** Nothing else in this section is possible without it, and every feature shipped
+before it adds more hardcoded classes to migrate.
+
+**Acceptance**
+- No component references a raw Tailwind palette step for colour
+- Changing one variable changes every surface that uses it
+- The daisyUI light/dark leak is gone
+
+**Impact** Every component. Build config.
+
+**Depends on** —
+
+**Status** Phase 6 · ⬜ Open — see [`DEC-13`](#dec-13--drop-daisyui)
+
+### UIX-02 — Glassmorphism — Phase 6
+
+**What** Translucent, blurred, subtly bordered surfaces throughout.
+
+**Why now** The backdrop already has the grid and glow orbs the effect needs; the surfaces
+sitting on it are flat.
+
+**Acceptance**
+- Panels read as layered glass, not flat panes with low opacity
+- A browser without `backdrop-filter` gets opaque surfaces, never washed-out ones
+- `prefers-reduced-transparency` is honoured
+
+**Impact** Every component.
+
+**Depends on** `UIX-01`
+
+**Status** Phase 6 · ⬜ Open
+
+### UIX-03 — Selectable themes — Phase 6
+
+**What** Six named themes, chosen by the user and stored on the account.
+
+**Acceptance**
+- The choice follows the account to another device
+- No flash of the wrong theme on load
+- An unknown theme value cannot be persisted
+- At least two themes are light, and glass still reads as glass on them
+
+**Impact** Data model, API surface, every component.
+
+**Depends on** `UIX-01`, `UIX-02`
+
+**Status** Phase 6 · ⬜ Open
+
+### UIX-04 — Chat wallpaper — Phase 6
+
+**What** A per-conversation background, from presets or an uploaded image.
+
+**Acceptance**
+- Set per conversation and per viewer — my wallpaper is not the group's
+- Falls back to an account-level default
+- Message text stays legible over any image, including a white one
+- Uses the existing signed-upload path, not a second one
+
+**Impact** Data model, API surface.
+
+**Depends on** `UIX-02`, `MED-01`
+
+**Status** Phase 6 · ⬜ Open
+
+---
+
+## OBS — Logging and observability
+
+### OBS-01 — Structured server logging — Phase 6
+
+**What** Levelled, correlated, redacted JSON logs replacing 60 `console.*` calls.
+
+**Why now** Closes `BE-I-07` and the remaining half of `BE-I-06` — the same ~30 call sites,
+so doing them apart means touching each twice.
+
+**Acceptance**
+- Every log line carries a request id, and socket lines carry a user id
+- Credentials, cookies, push keys and upload signatures never appear in a log
+- The test suite produces no log output
+- A controller no longer needs its own try/catch to return a clean 500
+
+**Impact** Every controller, the middleware chain.
+
+**Depends on** `X-03`
+
+**Status** Phase 6 · ⬜ Open
+
+### OBS-02 — Activity log — Phase 6
+
+**What** A structured, queryable record of who did what, and a place a user can read their
+own.
+
+**Acceptance**
+- Written from one helper, not scattered across controllers
+- Never records message content
+- Expires on its own rather than growing without bound
+- A user can see their own activity
+
+**Impact** Data model, API surface.
+
+**Depends on** `OBS-01`
+
+**Status** Phase 6 · ⬜ Open
+
+### OBS-03 — Client error reporting — Phase 6
+
+**What** Render crashes and unhandled rejections reach the server instead of a console
+nobody is watching.
+
+**Why now** A temporal-dead-zone crash shipped during Phase 5 and was found by a human
+opening the app. Nothing recorded it.
+
+**Acceptance**
+- A render crash is recorded with its component stack
+- Repeated identical errors increment a count rather than adding rows
+- The endpoint cannot be used to flood the database
+- Reporting never makes the app slower or noisier for the user
+
+**Impact** API surface, client bootstrap.
+
+**Depends on** `OBS-01`
+
+**Status** Phase 6 · ⬜ Open
+
+### OBS-04 — Admin activity viewer — Phase 6
+
+**What** An operator view over audit events and client errors.
+
+**Acceptance**
+- Reachable only by an account with the admin role, enforced per route
+- Shows no message content, attachment URLs or push endpoints
+- The first admin can be created on a fresh deployment without database surgery
+
+**Impact** Data model (`User.role`), API surface, a new route.
+
+**Depends on** `OBS-02`, `OBS-03`
+
+**Status** Phase 6 · ⬜ Open — see [`DEC-12`](#dec-12--amending-the-admin-console-non-goal)
+
+---
+
 ## Decision log
 
 Each entry: the question, the options, the recommendation, and what it costs.
@@ -1050,6 +1201,51 @@ Revisit if search becomes a primary way people navigate.
 
 **Status** Proposed
 
+### DEC-12 — Amending the admin-console non-goal
+
+**Question** The non-goals table ruled out an admin console. An operator view of audit
+events and client errors was then asked for directly. Quietly building it would leave the
+document lying about the product.
+
+**Recommendation — amend the non-goal rather than route around it.** Carve out a narrow
+operator view over `AuditEvent` and `ClientError`. Moderation, compliance export and
+retention policy stay out of scope; the original reasoning still holds for those.
+
+Two constraints make the carve-out safe rather than a slippery slope:
+
+1. **It reads collections, never log files.** A file-read endpoint on a production server
+   is a path-traversal target and would expose whatever redaction missed. Audit events are
+   structured and redacted by construction, so "an admin cannot read your messages" is a
+   property of the schema rather than of a filter someone has to remember.
+2. **It stores no message content.** `AuditEvent` records ids and action names. There is no
+   field for message text, so there is nothing for an admin route to leak.
+
+**Consequence** `User.role` now exists, which is a genuine new concept — group admin was
+per-conversation and unrelated. The first admin needs a bootstrap path
+([`OBS-04`](#obs-04--admin-activity-viewer--phase-6)).
+
+**Status** Accepted — supersedes the admin-console line in [Non-goals](#non-goals)
+
+### DEC-13 — Drop daisyUI
+
+**Question** Keep daisyUI and configure its themes, or remove it and own the components?
+
+**Recommendation — remove it.** Its entire footprint was three things: chat bubbles (already
+fully overridden inline), the `avatar` presence dot (a pseudo-element coloured by `--su`,
+unreachable from a Tailwind class), and a tab strip already neutralised with
+`bg-transparent`.
+
+It was also an active bug. With no `themes` key configured, daisyUI v4 emits
+`:root { color-scheme: light }` and swaps to dark only under `prefers-color-scheme: dark` —
+so on a light-mode OS the bubble tail, the deleted-message bubble, the tab base and the
+presence dot rendered *light* inside an unconditionally dark app.
+
+**Consequence** ~60 lines to re-implement three components, against a permanent end to
+fighting `--b1`/`--bc` for every translucent surface, and the removal of a
+light/dark leak that no amount of theme configuration would have fully closed.
+
+**Status** Accepted
+
 ### DEC-11 — Read receipts ship always-on
 
 **Question** Should users be able to turn read receipts off?
@@ -1076,6 +1272,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** ✅ | `MED-01`–`MED-06`, `MSG-09` — shipped | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
 | **4 — Groups** ✅ | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` — shipped | The second persona | `DEC-03` cursor migration complete |
+| **6 — Design system and observability** | `UIX-01`–`UIX-04`, `OBS-01`–`OBS-04` | A themeable UI and the ability to see what the app is doing | `OBS-01` before `OBS-02`/`OBS-03` |
 | **5 — Notifications** ✅ | `NTF-01`–`NTF-07`, `PLT-05` — shipped; push needs VAPID keys configured | Chatify works without a tab open | `NTF-04` before any push ships |
 
 **Why not do Phase 2 before Phase 1?** It feels better — visible progress sooner. It loses
@@ -1171,3 +1368,11 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `NTF-05` | Do not disturb | 5 | ✅ | `NTF-04`, `PLT-02` |
 | `NTF-06` | Notification sounds | 5 | ✅ | `NTF-04`, `NTF-05`, `FE-I-07` |
 | `NTF-07` | Last seen | 5 | ✅ | `PLT-05` |
+| `UIX-01` | Design tokens | 6 | ⬜ | `DEC-13` |
+| `UIX-02` | Glassmorphism | 6 | ⬜ | `UIX-01` |
+| `UIX-03` | Selectable themes | 6 | ⬜ | `UIX-01`, `UIX-02` |
+| `UIX-04` | Chat wallpaper | 6 | ⬜ | `UIX-02`, `MED-01` |
+| `OBS-01` | Structured server logging | 6 | ⬜ | `X-03` ✅ |
+| `OBS-02` | Activity log | 6 | ⬜ | `OBS-01` |
+| `OBS-03` | Client error reporting | 6 | ⬜ | `OBS-01` |
+| `OBS-04` | Admin activity viewer | 6 | ⬜ | `OBS-02`, `OBS-03` |
