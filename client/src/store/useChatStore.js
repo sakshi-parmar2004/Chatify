@@ -17,40 +17,29 @@ const TYPING_EXPIRY_MS = 5000;
 let lastTypingEmit = 0;
 const typingTimers = new Map();
 
-// A receipt is a watermark, not a list of ids. It has to apply to messages that
-// reach this client *after* the receipt did — a send still in flight, or an echo
-// from another tab — otherwise a receipt that overtakes its message strands that
-// bubble on the wrong tick forever.
-//
-// Optimistic messages are skipped deliberately: their createdAt comes from the
-// browser clock and must never be compared against a server timestamp.
-const applyReceipt = (message, receipts, authUserId) => {
-  if (message.isOptimistic || message.senderId !== authUserId) return message;
+const PAGE_SIZE = 50;
 
-  const { deliveredAt, readAt } = receipts[message.receiverId] ?? {};
-
-  if (readAt && message.createdAt <= readAt) return { ...message, status: "read" };
-  if (deliveredAt && message.status === "sent" && message.createdAt <= deliveredAt) {
-    return { ...message, status: "delivered" };
-  }
-  return message;
-};
+/** Key for the typingUsers map — typing is per person per conversation. */
+const typingKey = (conversationId, userId) => `${conversationId}:${userId}`;
 
 export const useChatStore = create((set, get) => ({
   allContacts: [],
-  chats: [],
+  conversations: [],
   messages: [],
   activeTab: "chats",
-  selectedUser: null,
+  selectedConversation: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  isLoadingOlder: false,
+  hasMoreMessages: false,
+  oldestCursor: null,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
-  // kept outside `chats` so a sidebar refetch cannot clobber a live increment
+  // { [conversationId]: number } — kept outside `conversations` so a list
+  // refetch cannot clobber a live increment
   unreadCounts: {},
-  // { [partnerId]: { deliveredAt, readAt } } — see applyReceipt above
-  receipts: {},
-  // partner ids currently composing. Entries expire on a timer rather than
-  // relying on a stopTyping that a dropped connection would never send.
+  // { [conversationId]: { [userId]: { lastReadAt, lastDeliveredAt } } }
+  cursors: {},
+  // { [`conversationId:userId`]: true }
   typingUsers: {},
 
   toggleSound: () => {
@@ -60,20 +49,31 @@ export const useChatStore = create((set, get) => ({
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
-  setSelectedUser: (selectedUser) => {
-    set({ selectedUser });
+  /** The other participant of the open direct conversation, for headers. */
+  partnerOfSelected: () => get().selectedConversation?.partner ?? null,
 
-    // The throttle is per-store, not per-conversation, so without this the
-    // first keystroke in a newly opened chat is swallowed by the window the
+  selectConversation: (conversation) => {
+    set({
+      selectedConversation: conversation,
+      messages: [],
+      hasMoreMessages: false,
+      oldestCursor: null,
+    });
+
+    // The typing throttle is per-store, not per-conversation, so without this
+    // the first keystroke in a newly opened chat is swallowed by the window the
     // previous conversation had already spent.
     lastTypingEmit = 0;
 
-    // opening a conversation is the read signal — but only if this tab is
-    // actually on screen. A chat opened in a background tab has not been read.
-    if (selectedUser && document.visibilityState === "visible") {
-      get().markConversationAsRead(selectedUser._id);
+    if (!conversation) return;
+
+    get().getMessages(conversation._id);
+    if (document.visibilityState === "visible") {
+      get().markConversationAsRead(conversation._id);
     }
   },
+
+  closeConversation: () => set({ selectedConversation: null, messages: [] }),
 
   getAllContacts: async () => {
     set({ isUsersLoading: true });
@@ -89,14 +89,14 @@ export const useChatStore = create((set, get) => ({
 
   // `silent` skips the loading flag so a background re-sync mid-conversation
   // does not replace the sidebar with a skeleton
-  getMyChatPartners: async ({ silent = false } = {}) => {
+  getConversations: async ({ silent = false } = {}) => {
     if (!silent) set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/messages/chats");
+      const res = await axiosInstance.get("/conversations");
       set({
-        chats: res.data,
+        conversations: res.data,
         unreadCounts: Object.fromEntries(
-          res.data.map((chat) => [chat._id, chat.unreadCount ?? 0])
+          res.data.map((conversation) => [conversation._id, conversation.unreadCount ?? 0])
         ),
       });
     } catch (error) {
@@ -106,11 +106,42 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  getMessagesByUserId: async (userId) => {
+  /** Open (or create) the direct thread with a contact, then select it. */
+  openDirectConversation: async (userId) => {
+    try {
+      const res = await axiosInstance.post(`/conversations/direct/${userId}`);
+
+      set((state) => ({
+        conversations: state.conversations.some((c) => c._id === res.data._id)
+          ? state.conversations
+          : [res.data, ...state.conversations],
+        activeTab: "chats",
+      }));
+
+      get().selectConversation(res.data);
+      return res.data;
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not open that conversation"));
+      return null;
+    }
+  },
+
+  getMessages: async (conversationId) => {
     set({ isMessagesLoading: true });
     try {
-      const res = await axiosInstance.get(`/messages/${userId}`);
-      set({ messages: res.data });
+      const res = await axiosInstance.get(
+        `/conversations/${conversationId}/messages?limit=${PAGE_SIZE}`
+      );
+
+      // a slow response for a conversation the user already navigated away from
+      // must not overwrite the one they are looking at now
+      if (get().selectedConversation?._id !== conversationId) return;
+
+      set({
+        messages: res.data.messages,
+        hasMoreMessages: res.data.hasMore,
+        oldestCursor: res.data.nextCursor,
+      });
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -118,48 +149,77 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  /** MSG-08 — prepend the previous page, preserving what is already loaded. */
+  loadOlderMessages: async () => {
+    const { selectedConversation, oldestCursor, hasMoreMessages, isLoadingOlder } = get();
+    if (!selectedConversation || !hasMoreMessages || isLoadingOlder || !oldestCursor) return;
+
+    set({ isLoadingOlder: true });
+    try {
+      const res = await axiosInstance.get(
+        `/conversations/${selectedConversation._id}/messages?limit=${PAGE_SIZE}` +
+          `&before=${encodeURIComponent(oldestCursor)}`
+      );
+
+      if (get().selectedConversation?._id !== selectedConversation._id) return;
+
+      set((state) => {
+        const known = new Set(state.messages.map((message) => message._id));
+        const older = res.data.messages.filter((message) => !known.has(message._id));
+        return {
+          messages: [...older, ...state.messages],
+          hasMoreMessages: res.data.hasMore,
+          oldestCursor: res.data.nextCursor ?? state.oldestCursor,
+        };
+      });
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not load older messages"));
+    } finally {
+      set({ isLoadingOlder: false });
+    }
+  },
+
   sendMessage: async (messageData) => {
-    const { selectedUser } = get();
+    const { selectedConversation } = get();
     const { authUser } = useAuthStore.getState();
+    if (!selectedConversation) return;
 
     const tempId = `temp-${Date.now()}`;
+    const conversationId = selectedConversation._id;
 
     const optimisticMessage = {
       _id: tempId,
+      conversationId,
       senderId: authUser._id,
-      receiverId: selectedUser._id,
       text: messageData.text,
       image: messageData.image,
+      replyTo: messageData.replyTo ?? null,
+      replySnapshot: messageData.replySnapshot ?? null,
       createdAt: new Date().toISOString(),
-      // client-only pseudo status; the server assigns sent or delivered
-      status: "sending",
-      isOptimistic: true, // flag to identify optimistic messages (optional)
+      isOptimistic: true,
     };
-    // immidiately update the ui by adding the message. Every update below uses
-    // the functional form so messages arriving over the socket mid-request are
-    // not clobbered by a stale snapshot.
+
     set((state) => ({ messages: [...state.messages, optimisticMessage] }));
 
     try {
-      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
+      const res = await axiosInstance.post(
+        `/conversations/${conversationId}/messages`,
+        messageData
+      );
 
       set((state) => {
-        // the server now echoes our own message back to us, and that echo can
-        // land before this response does — drop it so the swap below cannot
+        // the room echo may have landed first; drop it so the swap below cannot
         // leave two bubbles with the same _id
         const withoutEcho = state.messages.filter((message) => message._id !== res.data._id);
-        const saved = applyReceipt(res.data, state.receipts, authUser._id);
-
         return {
-          // swap the placeholder for the saved message, leaving anything else alone
-          messages: withoutEcho.map((message) => (message._id === tempId ? saved : message)),
+          messages: withoutEcho.map((message) =>
+            message._id === tempId ? res.data : message
+          ),
         };
       });
 
-      // a first message to a contact makes them a chat partner
-      get().applyMessageToChats(res.data, selectedUser._id);
+      get().applyMessageToConversations(res.data);
     } catch (error) {
-      // remove only the optimistic message on failure
       set((state) => ({
         messages: state.messages.filter((message) => message._id !== tempId),
       }));
@@ -167,83 +227,85 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // Keeps the sidebar preview and ordering in step with live traffic. Falls back
-  // to a refetch when the partner is not in the list yet — the server is the
-  // authority on both ordering and counts, and the store owns the fetching.
-  applyMessageToChats: (message, partnerId) => {
-    const existing = get().chats.find((chat) => chat._id === partnerId);
+  /** Keep the sidebar preview and ordering in step with live traffic. */
+  applyMessageToConversations: (message) => {
+    const existing = get().conversations.find((c) => c._id === message.conversationId);
     if (!existing) {
-      get().getMyChatPartners({ silent: true });
+      // a conversation we have never seen — the server is authoritative
+      get().getConversations({ silent: true });
       return;
     }
 
     const lastMessage = {
+      _id: message._id,
       text: message.text,
       image: message.image,
+      attachment: message.attachment,
       createdAt: message.createdAt,
       senderId: message.senderId,
-      status: message.status,
+      deletedAt: message.deletedAt ?? null,
     };
 
     set((state) => ({
-      chats: [
-        { ...existing, lastMessage },
-        ...state.chats.filter((chat) => chat._id !== partnerId),
+      conversations: [
+        { ...existing, lastMessage, lastMessageAt: message.createdAt },
+        ...state.conversations.filter((c) => c._id !== message.conversationId),
       ],
     }));
   },
 
-  markConversationAsRead: async (partnerId) => {
-    const { unreadCounts, messages } = get();
-    const hasUnread =
-      (unreadCounts[partnerId] ?? 0) > 0 ||
-      messages.some((message) => message.senderId === partnerId && message.status !== "read");
+  markConversationAsRead: async (conversationId) => {
+    if ((get().unreadCounts[conversationId] ?? 0) === 0) return;
 
-    // this fires on every conversation open; most of those are no-ops
-    if (!hasUnread) return;
-
-    // clear locally first. The socket echo would do it anyway, but this tab
-    // should not wait a round trip to drop its own badge.
+    // clear locally first; the socket echo would do it anyway, but this tab
+    // should not wait a round trip to drop its own badge
     set((state) => ({
-      unreadCounts: { ...state.unreadCounts, [partnerId]: 0 },
-      messages: state.messages.map((message) =>
-        message.senderId === partnerId ? { ...message, status: "read" } : message
-      ),
+      unreadCounts: { ...state.unreadCounts, [conversationId]: 0 },
     }));
 
     try {
-      await axiosInstance.patch(`/messages/read/${partnerId}`);
+      await axiosInstance.patch(`/conversations/${conversationId}/read`);
     } catch {
       // a failed receipt is not worth a toast, but the badge must not stay
       // wrongly cleared — let the server correct us
-      get().getMyChatPartners({ silent: true });
+      get().getConversations({ silent: true });
     }
   },
 
   // Throttled so a held-down key cannot become one emit per character — the
-  // server charges every inbound event against a per-socket budget, and this
-  // keeps a normal typist well inside it.
+  // server charges every inbound event against a per-socket budget.
   emitTyping: () => {
-    const { selectedUser } = get();
+    const { selectedConversation } = get();
     const socket = useAuthStore.getState().socket;
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedConversation) return;
 
     const now = Date.now();
     if (now - lastTypingEmit < TYPING_THROTTLE_MS) return;
 
     lastTypingEmit = now;
-    socket.emit("typing", { toUserId: selectedUser._id });
+    socket.emit("typing", { conversationId: selectedConversation._id });
   },
 
   emitStopTyping: () => {
-    const { selectedUser } = get();
+    const { selectedConversation } = get();
     const socket = useAuthStore.getState().socket;
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedConversation) return;
 
     // let the next keystroke emit immediately rather than waiting out the
     // throttle window it never used
     lastTypingEmit = 0;
-    socket.emit("stopTyping", { toUserId: selectedUser._id });
+    socket.emit("stopTyping", { conversationId: selectedConversation._id });
+  },
+
+  /** Anyone composing in the open conversation, excluding ourselves. */
+  typingInSelected: () => {
+    const { selectedConversation, typingUsers } = get();
+    if (!selectedConversation) return [];
+
+    const prefix = `${selectedConversation._id}:`;
+    return Object.keys(typingUsers)
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length));
   },
 
   // One listener for the whole session, not one per open conversation: unread
@@ -257,113 +319,141 @@ export const useChatStore = create((set, get) => ({
       if (!authUser) return;
 
       const isMine = newMessage.senderId === authUser._id;
-      const partnerId = isMine ? newMessage.receiverId : newMessage.senderId;
-      const isOpen = get().selectedUser?._id === partnerId;
+      const isOpen = get().selectedConversation?._id === newMessage.conversationId;
 
-      if (isOpen && !get().messages.some((message) => message._id === newMessage._id)) {
-        set((state) => ({
-          messages: [...state.messages, applyReceipt(newMessage, state.receipts, authUser._id)],
-        }));
+      if (isOpen && !get().messages.some((m) => m._id === newMessage._id)) {
+        set((state) => ({ messages: [...state.messages, newMessage] }));
       }
 
-      get().applyMessageToChats(newMessage, partnerId);
+      get().applyMessageToConversations(newMessage);
+
+      // the sender stopped typing by definition
+      set((state) => {
+        const key = typingKey(newMessage.conversationId, newMessage.senderId);
+        if (!state.typingUsers[key]) return {};
+        const { [key]: _gone, ...rest } = state.typingUsers;
+        return { typingUsers: rest };
+      });
 
       // our own message echoed to another tab: never a badge, never a sound
       if (isMine) return;
 
-      // read the current value rather than the one captured at subscribe time,
-      // so toggling sound takes effect immediately
-      if (get().isSoundEnabled) {
+      if (get().isSoundEnabled && !isConversationMuted(get(), newMessage.conversationId)) {
         const notificationSound = new Audio("/sounds/notification.mp3");
-
-        notificationSound.currentTime = 0; // reset to start
+        notificationSound.currentTime = 0;
         notificationSound.play().catch(() => {});
       }
 
       if (isOpen && document.visibilityState === "visible") {
-        get().markConversationAsRead(partnerId);
+        // bump then clear, so markConversationAsRead sees something to do
+        set((state) => ({
+          unreadCounts: {
+            ...state.unreadCounts,
+            [newMessage.conversationId]: (state.unreadCounts[newMessage.conversationId] ?? 0) + 1,
+          },
+        }));
+        get().markConversationAsRead(newMessage.conversationId);
       } else {
         set((state) => ({
           unreadCounts: {
             ...state.unreadCounts,
-            [partnerId]: (state.unreadCounts[partnerId] ?? 0) + 1,
+            [newMessage.conversationId]: (state.unreadCounts[newMessage.conversationId] ?? 0) + 1,
           },
         }));
       }
     });
 
-    socket.on("messagesDelivered", ({ partnerId, deliveredAt }) => {
-      const { authUser } = useAuthStore.getState();
-      if (!authUser) return;
-
-      set((state) => {
-        const receipts = {
-          ...state.receipts,
-          [partnerId]: { ...state.receipts[partnerId], deliveredAt },
-        };
-        return {
-          receipts,
-          messages: state.messages.map((message) =>
-            applyReceipt(message, receipts, authUser._id)
-          ),
-        };
-      });
+    socket.on("messageUpdated", (updated) => {
+      set((state) => ({
+        messages: state.messages.map((message) =>
+          message._id === updated._id ? updated : message
+        ),
+      }));
+      // an edit or delete of the newest message changes the sidebar preview
+      const conversation = get().conversations.find((c) => c._id === updated.conversationId);
+      if (conversation?.lastMessage?._id === updated._id) {
+        get().applyMessageToConversations(updated);
+      }
     });
 
-    socket.on("messagesRead", ({ partnerId, readAt }) => {
-      const { authUser } = useAuthStore.getState();
-      if (!authUser) return;
+    const recordCursor = (field) => ({ conversationId, userId, ...rest }) => {
+      const value = rest[field];
+      set((state) => ({
+        cursors: {
+          ...state.cursors,
+          [conversationId]: {
+            ...state.cursors[conversationId],
+            [userId]: { ...state.cursors[conversationId]?.[userId], [field]: value },
+          },
+        },
+      }));
+    };
 
-      set((state) => {
-        const receipts = {
-          ...state.receipts,
-          [partnerId]: { ...state.receipts[partnerId], readAt },
-        };
-        return {
-          receipts,
-          messages: state.messages.map((message) =>
-            applyReceipt(message, receipts, authUser._id)
-          ),
-        };
-      });
+    socket.on("conversationRead", (payload) => {
+      recordCursor("lastReadAt")(payload);
+
+      // another of our own tabs read it
+      const { authUser } = useAuthStore.getState();
+      if (authUser && payload.userId === authUser._id) {
+        set((state) => ({
+          unreadCounts: { ...state.unreadCounts, [payload.conversationId]: 0 },
+        }));
+      }
     });
 
-    socket.on("userTyping", ({ fromUserId }) => {
-      set((state) => ({ typingUsers: { ...state.typingUsers, [fromUserId]: true } }));
+    socket.on("conversationDelivered", recordCursor("lastDeliveredAt"));
+
+    socket.on("userTyping", ({ conversationId, userId }) => {
+      const key = typingKey(conversationId, userId);
+      set((state) => ({ typingUsers: { ...state.typingUsers, [key]: true } }));
 
       // Every event restarts the clock. This is what makes the indicator
       // self-healing: a stopTyping that never arrives, or a sender who closes
       // the tab mid-word, clears on its own.
-      clearTimeout(typingTimers.get(fromUserId));
+      clearTimeout(typingTimers.get(key));
       typingTimers.set(
-        fromUserId,
+        key,
         setTimeout(() => {
-          typingTimers.delete(fromUserId);
+          typingTimers.delete(key);
           set((state) => {
-            const { [fromUserId]: _removed, ...rest } = state.typingUsers;
+            const { [key]: _gone, ...rest } = state.typingUsers;
             return { typingUsers: rest };
           });
         }, TYPING_EXPIRY_MS)
       );
     });
 
-    socket.on("userStoppedTyping", ({ fromUserId }) => {
-      clearTimeout(typingTimers.get(fromUserId));
-      typingTimers.delete(fromUserId);
+    socket.on("userStoppedTyping", ({ conversationId, userId }) => {
+      const key = typingKey(conversationId, userId);
+      clearTimeout(typingTimers.get(key));
+      typingTimers.delete(key);
 
       set((state) => {
-        const { [fromUserId]: _removed, ...rest } = state.typingUsers;
+        const { [key]: _gone, ...rest } = state.typingUsers;
         return { typingUsers: rest };
       });
     });
 
-    // another of our own tabs read this conversation
-    socket.on("conversationRead", ({ partnerId }) => {
+    socket.on("conversationUpdated", (conversation) => {
       set((state) => ({
-        unreadCounts: { ...state.unreadCounts, [partnerId]: 0 },
-        messages: state.messages.map((message) =>
-          message.senderId === partnerId ? { ...message, status: "read" } : message
+        conversations: state.conversations.map((existing) =>
+          existing._id === conversation._id ? { ...existing, ...conversation } : existing
         ),
+        selectedConversation:
+          state.selectedConversation?._id === conversation._id
+            ? { ...state.selectedConversation, ...conversation }
+            : state.selectedConversation,
+      }));
+    });
+
+    socket.on("removedFromConversation", ({ conversationId }) => {
+      set((state) => ({
+        conversations: state.conversations.filter((c) => c._id !== conversationId),
+        selectedConversation:
+          state.selectedConversation?._id === conversationId
+            ? null
+            : state.selectedConversation,
+        messages: state.selectedConversation?._id === conversationId ? [] : state.messages,
       }));
     });
   },
@@ -372,12 +462,18 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
-    socket.off("newMessage");
-    socket.off("messagesDelivered");
-    socket.off("messagesRead");
-    socket.off("conversationRead");
-    socket.off("userTyping");
-    socket.off("userStoppedTyping");
+    for (const event of [
+      "newMessage",
+      "messageUpdated",
+      "conversationRead",
+      "conversationDelivered",
+      "userTyping",
+      "userStoppedTyping",
+      "conversationUpdated",
+      "removedFromConversation",
+    ]) {
+      socket.off(event);
+    }
 
     // pending expiry timers would otherwise fire into a torn-down subscription
     for (const timer of typingTimers.values()) clearTimeout(timer);
@@ -385,3 +481,9 @@ export const useChatStore = create((set, get) => ({
     set({ typingUsers: {} });
   },
 }));
+
+const isConversationMuted = (state, conversationId) => {
+  const conversation = state.conversations.find((c) => c._id === conversationId);
+  if (!conversation?.mutedUntil) return false;
+  return new Date(conversation.mutedUntil) > new Date();
+};

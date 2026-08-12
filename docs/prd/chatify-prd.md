@@ -1,6 +1,6 @@
 # Chatify — Product Requirements
 
-> **Status: 5 of 34 shipped, across 6 phases.** Phase 0 is complete; Phases 1-5 are not started.
+> **Status: 8 of 34 shipped, across 6 phases.** Phases 0 and 1 are complete.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -104,10 +104,11 @@ A working one-to-one chat app. Stack, API reference and setup are in the
 [root README](../../README.md) and are not repeated here. What follows is only what
 *constrains the roadmap*:
 
-- **Conversations are implicit.** There is no `Conversation` collection. A chat partner is
-  derived at read time by aggregating over `Message`, which carries `senderId` and
-  `receiverId`. Groups, mute, mentions, pinning and per-conversation settings all need a
-  real conversation record.
+- **Conversations are explicit as of `PLT-01`.** `Conversation` carries participants, a
+  type and per-participant read cursors, and reads go through it. `Message.receiverId` is
+  still written but no longer read — the contract step that removes it is deliberately
+  held, because dropping a column is irreversible and cannot be verified until the backfill
+  has run against real data.
 - **The inbound socket surface is new and deliberately small.** `PLT-02` established it with
   two events. Arcjet still rate-limits HTTP only, so the socket budget is enforced by a
   per-socket token bucket rather than by Arcjet — anything added to that registry inherits
@@ -211,7 +212,7 @@ features land on top of the old shape.
 
 **Depends on** `X-03` — ✅ met
 
-**Status** Phase 1 · ⬜ Open
+**Status** Phase 1 · ✅ Shipped (steps 1-3; the contract step is deliberately held — see below)
 
 **Migration — four steps, in this order:**
 
@@ -291,7 +292,7 @@ participant list does not survive groups.
 
 **Depends on** `PLT-01`
 
-**Status** Phase 1 · ⬜ Open — see [`DEC-04`](#dec-04--rooms-over-application-level-fan-out)
+**Status** Phase 1 · ✅ Shipped — see [`DEC-04`](#dec-04--rooms-over-application-level-fan-out)
 
 ### PLT-05 — Scoped presence — Phase 5
 
@@ -1061,7 +1062,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | Phase | Contents | What it unlocks | Gate |
 |---|---|---|---|
 | **0 — Receipts and the inbound channel** ✅ | `MSG-01`, `MSG-02`, `PLT-03`, `MSG-03`, `PLT-02` — all shipped | The inbound socket surface and the global listener that every later phase assumes | `X-03` for the new endpoints |
-| **1 — Conversation migration** | `PLT-01`, `PLT-04` | Literally everything below | Backfill verified by count; rollback rehearsed |
+| **1 — Conversation migration** ✅ | `PLT-01`, `PLT-04` — shipped; contract step held | Literally everything below | Backfill verified by count; rollback rehearsed |
 | **2 — Message polish** | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** | `MED-01`–`MED-06`, `MSG-09` | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
 | **4 — Groups** | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` | The second persona | `DEC-03` cursor migration complete |
@@ -1126,10 +1127,10 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 
 | ID | Title | Phase | State | Depends on |
 |---|---|---|---|---|
-| `PLT-01` | The conversation model | 1 | ⬜ | `X-03` ✅ |
+| `PLT-01` | The conversation model | 1 | ✅ | `X-03` ✅ |
 | `PLT-02` | Inbound socket event contract | 0 | ✅ | `X-05` |
 | `PLT-03` | Global inbox listener | 0 | ✅ | — |
-| `PLT-04` | Conversation-scoped socket rooms | 1 | ⬜ | `PLT-01` |
+| `PLT-04` | Conversation-scoped socket rooms | 1 | ✅ | `PLT-01` |
 | `PLT-05` | Scoped presence | 5 | ⬜ | `PLT-01`, `PLT-02` |
 | `MSG-01` | Read receipts | 0 | ✅ | `PLT-03` |
 | `MSG-02` | Unread badges | 0 | ✅ | `MSG-01`, `PLT-03` |
@@ -1138,7 +1139,7 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `MSG-05` | Reply and quote | 2 | ⬜ | `PLT-01`, `MSG-04`, `MSG-08` |
 | `MSG-06` | Reactions | 2 | ⬜ | `PLT-01` |
 | `MSG-07` | Message search | 2 | ⬜ | `PLT-01`, `MSG-08` |
-| `MSG-08` | Conversation history | 2 | ⬜ | `BE-I-05`, `FE-I-04` |
+| `MSG-08` | Conversation history | 2 | ✅ | `BE-I-05`, `FE-I-04` |
 | `MSG-09` | Link previews | 3 | ⬜ | `PLT-01` |
 | `MSG-10` | Pin a message | 4 | ⬜ | `PLT-01`, `GRP-02` |
 | `GRP-01` | Group conversations | 4 | ⬜ | `PLT-01`, `PLT-04`, `DEC-03` |

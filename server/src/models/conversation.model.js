@@ -17,6 +17,9 @@ const participantStateSchema = new mongoose.Schema(
     // newest createdAt this participant has read / had delivered to a live client
     lastReadAt: { type: Date, default: null },
     lastDeliveredAt: { type: Date, default: null },
+    // NTF-04. Per user, not per device, so muting on a phone mutes everywhere.
+    // A null date means never muted; a far-future date means indefinitely.
+    mutedUntil: { type: Date, default: null },
   },
   { _id: false }
 );
@@ -45,6 +48,16 @@ const conversationSchema = new mongoose.Schema(
     // denormalised so the conversation list can sort without touching messages
     lastMessageAt: { type: Date, default: null },
     participantState: { type: [participantStateSchema], default: [] },
+
+    // --- group only (GRP-01, GRP-02) ---
+    name: { type: String, trim: true, maxlength: 80, default: null },
+    image: { type: String, default: null },
+    // A group always has at least one admin; GRP-02 enforces that the last one
+    // cannot leave without promoting someone.
+    admins: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    // MSG-10
+    pinnedMessageIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Message" }],
   },
   { timestamps: true }
 );

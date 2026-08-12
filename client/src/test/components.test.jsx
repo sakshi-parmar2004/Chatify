@@ -18,6 +18,24 @@ import ChatContainer from "../components/ChatContainer";
 
 const ALICE = { _id: "alice", name: "Alice", profilePic: "" };
 const BOB = { _id: "bob", name: "Bob", profilePic: "" };
+const CAROL = { _id: "carol", name: "Carol", profilePic: "" };
+
+const DIRECT = {
+  _id: "conv1",
+  type: "direct",
+  participants: [ALICE, BOB],
+  partner: BOB,
+  lastMessage: { text: "see you", createdAt: new Date().toISOString() },
+};
+
+const GROUP = {
+  _id: "conv2",
+  type: "group",
+  name: "Weekend plans",
+  participants: [ALICE, BOB, CAROL],
+  partner: null,
+  lastMessage: null,
+};
 
 const noop = () => {};
 const asyncNoop = () => Promise.resolve();
@@ -26,24 +44,29 @@ beforeEach(() => {
   useAuthStore.setState({ authUser: ALICE, onlineUsers: [], socket: null });
   useChatStore.setState({
     allContacts: [],
-    chats: [],
+    conversations: [],
     messages: [],
-    selectedUser: BOB,
+    selectedConversation: DIRECT,
     isUsersLoading: false,
     isMessagesLoading: false,
+    isLoadingOlder: false,
+    hasMoreMessages: false,
+    oldestCursor: null,
     isSoundEnabled: false,
     unreadCounts: {},
-    receipts: {},
+    cursors: {},
     typingUsers: {},
-    // stub the actions that would otherwise reach the network
-    getMyChatPartners: asyncNoop,
+    getConversations: asyncNoop,
     getAllContacts: asyncNoop,
-    getMessagesByUserId: asyncNoop,
+    getMessages: asyncNoop,
+    loadOlderMessages: asyncNoop,
     markConversationAsRead: asyncNoop,
     sendMessage: asyncNoop,
+    openDirectConversation: asyncNoop,
+    selectConversation: noop,
+    closeConversation: noop,
     emitTyping: noop,
     emitStopTyping: noop,
-    setSelectedUser: noop,
   });
 });
 
@@ -102,7 +125,7 @@ describe("MessageInput", () => {
 });
 
 describe("ChatHeader", () => {
-  it("renders the partner and their presence", () => {
+  it("renders the partner and their presence for a direct chat", () => {
     useAuthStore.setState({ onlineUsers: ["bob"] });
     render(<ChatHeader />);
 
@@ -110,40 +133,74 @@ describe("ChatHeader", () => {
     expect(screen.getByText("Online")).toBeInTheDocument();
   });
 
-  it("shows typing in place of presence, and only for the open conversation", () => {
+  it("renders a group name and member count", () => {
+    useChatStore.setState({ selectedConversation: GROUP });
+    render(<ChatHeader />);
+
+    expect(screen.getByText("Weekend plans")).toBeInTheDocument();
+    expect(screen.getByText("3 members")).toBeInTheDocument();
+  });
+
+  it("shows typing in place of presence", () => {
     useAuthStore.setState({ onlineUsers: ["bob"] });
-    useChatStore.setState({ typingUsers: { bob: true } });
+    useChatStore.setState({ typingUsers: { "conv1:bob": true } });
     render(<ChatHeader />);
 
     expect(screen.getByText("typing…")).toBeInTheDocument();
     expect(screen.queryByText("Online")).not.toBeInTheDocument();
   });
 
-  it("ignores someone else typing", () => {
-    useChatStore.setState({ typingUsers: { carol: true } });
+  it("names who is typing in a group", () => {
+    useChatStore.setState({
+      selectedConversation: GROUP,
+      typingUsers: { "conv2:carol": true },
+    });
+    render(<ChatHeader />);
+
+    expect(screen.getByText("Carol is typing…")).toBeInTheDocument();
+  });
+
+  it("ignores typing from another conversation", () => {
+    useChatStore.setState({ typingUsers: { "conv9:bob": true } });
     render(<ChatHeader />);
     expect(screen.queryByText("typing…")).not.toBeInTheDocument();
   });
 });
 
 describe("ChatsList", () => {
-  const chats = [
-    { ...BOB, lastMessage: { text: "see you", createdAt: new Date().toISOString() } },
-    { _id: "carol", name: "Carol", profilePic: "", lastMessage: { image: "x", text: "" } },
+  const conversations = [
+    DIRECT,
+    {
+      _id: "conv3",
+      type: "direct",
+      participants: [ALICE, CAROL],
+      partner: CAROL,
+      lastMessage: { image: "x", text: "" },
+    },
+    GROUP,
   ];
 
   it("renders conversations with previews", () => {
-    useChatStore.setState({ chats });
+    useChatStore.setState({ conversations });
     render(<ChatsList />);
 
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("see you")).toBeInTheDocument();
     // an image-only message still needs a preview
     expect(screen.getByText("Photo")).toBeInTheDocument();
+    expect(screen.getByText("Weekend plans")).toBeInTheDocument();
+  });
+
+  it("shows a tombstoned last message as deleted", () => {
+    useChatStore.setState({
+      conversations: [{ ...DIRECT, lastMessage: { text: "gone", deletedAt: new Date().toISOString() } }],
+    });
+    render(<ChatsList />);
+    expect(screen.getByText("Message deleted")).toBeInTheDocument();
   });
 
   it("shows an unread badge only where there is something unread", () => {
-    useChatStore.setState({ chats, unreadCounts: { bob: 3, carol: 0 } });
+    useChatStore.setState({ conversations, unreadCounts: { conv1: 3, conv3: 0 } });
     render(<ChatsList />);
 
     expect(screen.getByText("3")).toBeInTheDocument();
@@ -152,7 +209,7 @@ describe("ChatsList", () => {
   });
 
   it("clamps a very large unread count", () => {
-    useChatStore.setState({ chats, unreadCounts: { bob: 1234 } });
+    useChatStore.setState({ conversations, unreadCounts: { conv1: 1234 } });
     render(<ChatsList />);
     expect(screen.getByText("99+")).toBeInTheDocument();
   });
@@ -161,11 +218,15 @@ describe("ChatsList", () => {
 describe("ChatContainer", () => {
   const own = (over = {}) => ({
     _id: "m1",
+    conversationId: "conv1",
     senderId: "alice",
-    receiverId: "bob",
     text: "mine",
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(2026, 0, 1, 12, 0, 0).toISOString(),
     ...over,
+  });
+
+  const cursorsWhere = (field, at) => ({
+    conv1: { bob: { [field]: at } },
   });
 
   it("renders an empty conversation without crashing", () => {
@@ -173,42 +234,119 @@ describe("ChatContainer", () => {
     expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 
-  it.each([
-    ["sending", "Sending"],
-    ["sent", "Sent"],
-    ["delivered", "Delivered"],
-    ["read", "Read"],
-  ])("labels a %s message for screen readers", (status, label) => {
-    useChatStore.setState({ messages: [own({ status })] });
+  it("shows a single tick when nobody has received it yet", () => {
+    useChatStore.setState({ messages: [own()] });
     render(<ChatContainer />);
-    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText("Sent")).toBeInTheDocument();
   });
 
-  it("shows no tick on a message written before receipts existed", () => {
-    useChatStore.setState({ messages: [own({ status: undefined })] });
+  it("shows delivered once the partner's delivery cursor passes it", () => {
+    useChatStore.setState({
+      messages: [own()],
+      cursors: cursorsWhere("lastDeliveredAt", new Date(2026, 0, 1, 12, 5).toISOString()),
+    });
     render(<ChatContainer />);
+    expect(screen.getByText("Delivered")).toBeInTheDocument();
+  });
 
-    for (const label of ["Sending", "Sent", "Delivered", "Read"]) {
-      expect(screen.queryByText(label)).not.toBeInTheDocument();
-    }
+  it("shows read once the partner's read cursor passes it", () => {
+    useChatStore.setState({
+      messages: [own()],
+      cursors: cursorsWhere("lastReadAt", new Date(2026, 0, 1, 12, 5).toISOString()),
+    });
+    render(<ChatContainer />);
+    expect(screen.getByText("Read")).toBeInTheDocument();
+  });
+
+  it("does not mark a newer message read from an older cursor", () => {
+    useChatStore.setState({
+      messages: [own({ createdAt: new Date(2026, 0, 1, 13, 0).toISOString() })],
+      cursors: cursorsWhere("lastReadAt", new Date(2026, 0, 1, 12, 5).toISOString()),
+    });
+    render(<ChatContainer />);
+    expect(screen.getByText("Sent")).toBeInTheDocument();
+    expect(screen.queryByText("Read")).not.toBeInTheDocument();
+  });
+
+  it("shows sending for an optimistic message", () => {
+    useChatStore.setState({ messages: [own({ isOptimistic: true })] });
+    render(<ChatContainer />);
+    expect(screen.getByText("Sending")).toBeInTheDocument();
   });
 
   it("never shows a tick on someone else's message", () => {
     useChatStore.setState({
-      messages: [own({ senderId: "bob", receiverId: "alice", status: "read" })],
+      messages: [own({ senderId: "bob" })],
+      cursors: cursorsWhere("lastReadAt", new Date(2026, 0, 1, 12, 5).toISOString()),
     });
     render(<ChatContainer />);
     expect(screen.queryByText("Read")).not.toBeInTheDocument();
   });
 
+  it("only calls a group message read when every member has read it", () => {
+    const readAt = new Date(2026, 0, 1, 12, 5).toISOString();
+    useChatStore.setState({
+      selectedConversation: GROUP,
+      messages: [own({ conversationId: "conv2" })],
+      // bob has read it, carol has not
+      cursors: { conv2: { bob: { lastReadAt: readAt } } },
+    });
+    render(<ChatContainer />);
+
+    expect(screen.queryByText("Read")).not.toBeInTheDocument();
+    expect(screen.getByText("Sent")).toBeInTheDocument();
+  });
+
+  it("renders a tombstone instead of deleted content", () => {
+    useChatStore.setState({
+      messages: [own({ text: "secret", deletedAt: new Date().toISOString() })],
+    });
+    render(<ChatContainer />);
+
+    expect(screen.getByText("This message was deleted")).toBeInTheDocument();
+    expect(screen.queryByText("secret")).not.toBeInTheDocument();
+  });
+
+  it("marks an edited message as edited", () => {
+    useChatStore.setState({ messages: [own({ editedAt: new Date().toISOString() })] });
+    render(<ChatContainer />);
+    expect(screen.getByText("· edited")).toBeInTheDocument();
+  });
+
+  it("renders a quoted reply", () => {
+    useChatStore.setState({
+      messages: [own({ replySnapshot: { text: "the original", hasImage: false } })],
+    });
+    render(<ChatContainer />);
+    expect(screen.getByText("the original")).toBeInTheDocument();
+  });
+
+  it("names the sender in a group but not in a direct chat", () => {
+    useChatStore.setState({
+      selectedConversation: GROUP,
+      messages: [own({ conversationId: "conv2", senderId: "carol" })],
+    });
+    const { unmount } = render(<ChatContainer />);
+    expect(screen.getByText("Carol")).toBeInTheDocument();
+    unmount();
+
+    useChatStore.setState({ selectedConversation: DIRECT, messages: [own({ senderId: "bob" })] });
+    render(<ChatContainer />);
+    // the header still says Bob, but the bubble must not repeat it
+    expect(screen.getAllByText("Bob")).toHaveLength(1);
+  });
+
+  it("says when the beginning of the conversation has been reached", () => {
+    useChatStore.setState({ messages: [own()], hasMoreMessages: false });
+    render(<ChatContainer />);
+    expect(screen.getByText("This is the beginning of the conversation")).toBeInTheDocument();
+  });
+
   it("marks the conversation read once the history has loaded", () => {
     const markConversationAsRead = vi.fn();
-    useChatStore.setState({
-      markConversationAsRead,
-      messages: [own({ senderId: "bob", receiverId: "alice", status: "sent" })],
-    });
+    useChatStore.setState({ markConversationAsRead, messages: [own({ senderId: "bob" })] });
 
     render(<ChatContainer />);
-    expect(markConversationAsRead).toHaveBeenCalledWith("bob");
+    expect(markConversationAsRead).toHaveBeenCalledWith("conv1");
   });
 });

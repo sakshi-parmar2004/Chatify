@@ -5,7 +5,7 @@ import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 
 function ContactList() {
-  const { getAllContacts, allContacts, setSelectedUser, isUsersLoading } = useChatStore();
+  const { getAllContacts, allContacts, openDirectConversation, isUsersLoading } = useChatStore();
   const { onlineUsers } = useAuthStore();
 
   useEffect(() => {
@@ -37,7 +37,9 @@ function ContactList() {
           key={contact._id}
           type="button"
           className="w-full text-left bg-cyan-500/10 p-4 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
-          onClick={() => setSelectedUser(contact)}
+          // resolves (or creates) the direct thread, then opens it — a contact
+          // is not itself a conversation any more
+          onClick={() => openDirectConversation(contact._id)}
         >
           <div className="flex items-center gap-3">
             <div className={`avatar ${onlineUsers.includes(contact._id) ? "online" : "offline"}`}>

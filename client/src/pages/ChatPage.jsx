@@ -11,7 +11,8 @@ import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 
 function ChatPage() {
-  const { activeTab, selectedUser, subscribeToInbox, unsubscribeFromInbox } = useChatStore();
+  const { activeTab, selectedConversation, subscribeToInbox, unsubscribeFromInbox } =
+    useChatStore();
   const { socket } = useAuthStore();
 
   // One inbox listener for the whole authenticated session. Unread badges have
@@ -34,7 +35,7 @@ function ChatPage() {
         {/* LEFT SIDE — the only pane on a phone until a conversation is opened */}
         <div
           className={`w-full md:w-80 md:shrink-0 bg-slate-800/50 backdrop-blur-sm flex-col ${
-            selectedUser ? "hidden md:flex" : "flex"
+            selectedConversation ? "hidden md:flex" : "flex"
           }`}
         >
           <ProfileHeader />
@@ -49,10 +50,10 @@ function ChatPage() {
             min-w-0 lets long names truncate instead of stretching the pane. */}
         <div
           className={`flex-1 min-w-0 flex-col bg-slate-900/50 backdrop-blur-sm ${
-            selectedUser ? "flex" : "hidden md:flex"
+            selectedConversation ? "flex" : "hidden md:flex"
           }`}
         >
-          {selectedUser ? <ChatContainer /> : <NoConversationPlaceholder />}
+          {selectedConversation ? <ChatContainer /> : <NoConversationPlaceholder />}
         </div>
       </BorderAnimatedContainer>
     </div>

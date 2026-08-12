@@ -3,26 +3,30 @@ import { consumeToken } from "../lib/socketRateLimit.js";
 import { INBOUND_EVENTS, registerInboundEvents } from "../lib/socketEvents.js";
 
 const ALICE = "507f1f77bcf86cd799439011";
-const BOB = "507f1f77bcf86cd799439012";
+const CONVERSATION = "507f1f77bcf86cd799439012";
+const OTHER_CONVERSATION = "507f1f77bcf86cd799439013";
 
-/** Stands in for a Socket.IO socket: records handlers so tests can fire them. */
-const makeSocket = () => {
+/**
+ * Stands in for a Socket.IO socket. `rooms` matters: conversation events are
+ * authorized by room membership, which the server granted at connect time.
+ */
+const makeSocket = ({ rooms = [`conversation:${CONVERSATION}`] } = {}) => {
   const handlers = new Map();
+  const emitted = [];
+
   return {
+    rooms: new Set(rooms),
+    emitted,
     on: (name, fn) => handlers.set(name, fn),
     fire: (name, payload) => handlers.get(name)?.(payload),
     names: () => [...handlers.keys()].sort((a, b) => a.localeCompare(b)),
+    to: vi.fn((room) => ({
+      emit: (event, payload) => emitted.push({ room, event, payload }),
+    })),
   };
 };
 
-const makeContext = (emitted, overrides = {}) => ({
-  userId: ALICE,
-  getReceiverSocketIds: (id) => (id === BOB ? ["sock-b1", "sock-b2"] : []),
-  io: {
-    to: (socketId) => ({ emit: (event, payload) => emitted.push({ socketId, event, payload }) }),
-  },
-  ...overrides,
-});
+const context = { userId: ALICE };
 
 describe("per-socket rate limit", () => {
   const limit = { capacity: 3, perSecond: 1 };
@@ -63,106 +67,105 @@ describe("per-socket rate limit", () => {
 describe("inbound event registry", () => {
   it("registers exactly the declared events and nothing else", () => {
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext([]));
+    registerInboundEvents(socket, context);
     expect(socket.names()).toEqual(Object.keys(INBOUND_EVENTS).sort((a, b) => a.localeCompare(b)));
   });
 
-  it("relays typing to every one of the recipient's sockets", () => {
-    const emitted = [];
+  it("relays typing to the conversation room, excluding the sender", () => {
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted));
+    registerInboundEvents(socket, context);
 
-    socket.fire("typing", { toUserId: BOB });
+    socket.fire("typing", { conversationId: CONVERSATION });
 
-    expect(emitted.map((e) => e.socketId)).toEqual(["sock-b1", "sock-b2"]);
-    expect(emitted[0].event).toBe("userTyping");
+    // socket.to() rather than io.to() — you do not need to be told you are typing
+    expect(socket.emitted).toEqual([
+      {
+        room: `conversation:${CONVERSATION}`,
+        event: "userTyping",
+        payload: { conversationId: CONVERSATION, userId: ALICE },
+      },
+    ]);
   });
 
   it("relays stopTyping", () => {
-    const emitted = [];
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted));
+    registerInboundEvents(socket, context);
 
-    socket.fire("stopTyping", { toUserId: BOB });
-    expect(emitted[0].event).toBe("userStoppedTyping");
+    socket.fire("stopTyping", { conversationId: CONVERSATION });
+    expect(socket.emitted[0].event).toBe("userStoppedTyping");
+  });
+
+  it("drops an event for a conversation the socket is not in", () => {
+    const socket = makeSocket();
+    registerInboundEvents(socket, context);
+
+    // a well-formed id the caller has no membership of: room membership is the
+    // authorization boundary, and it costs no database round trip
+    socket.fire("typing", { conversationId: OTHER_CONVERSATION });
+
+    expect(socket.emitted).toEqual([]);
+    expect(socket.to).not.toHaveBeenCalled();
   });
 
   it.each([
     ["undefined", undefined],
     ["null", null],
     ["an empty object", {}],
-    ["a non-id string", { toUserId: "not-an-id" }],
-    ["a number", { toUserId: 42 }],
-    ["a query operator", { toUserId: { $ne: null } }],
-    ["an array", { toUserId: [BOB] }],
+    ["a non-id string", { conversationId: "not-an-id" }],
+    ["a number", { conversationId: 42 }],
+    ["a query operator", { conversationId: { $ne: null } }],
+    ["an array", { conversationId: [CONVERSATION] }],
   ])("drops %s before it reaches a handler", (_label, payload) => {
-    const emitted = [];
-    // Asserting "nothing was emitted" is not enough: a handler that ran with a
-    // null recipient also emits nothing, so the test would pass with validation
-    // removed entirely. Assert the handler was never reached at all.
-    const getReceiverSocketIds = vi.fn(() => []);
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted, { getReceiverSocketIds }));
+    registerInboundEvents(socket, context);
 
     socket.fire("typing", payload);
 
-    expect(getReceiverSocketIds).not.toHaveBeenCalled();
-    expect(emitted).toEqual([]);
-  });
-
-  it("does reach the handler for a well-formed payload", () => {
-    // guards the assertion above from passing for the wrong reason
-    const getReceiverSocketIds = vi.fn(() => []);
-    const socket = makeSocket();
-    registerInboundEvents(socket, makeContext([], { getReceiverSocketIds }));
-
-    socket.fire("typing", { toUserId: BOB });
-    expect(getReceiverSocketIds).toHaveBeenCalledWith(BOB);
+    // asserting "nothing emitted" alone would also pass with validation removed
+    expect(socket.to).not.toHaveBeenCalled();
+    expect(socket.emitted).toEqual([]);
   });
 
   it("takes the sender from the socket, never from the payload", () => {
-    const emitted = [];
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted));
+    registerInboundEvents(socket, context);
 
-    socket.fire("typing", { toUserId: BOB, fromUserId: "attacker", userId: "attacker" });
-    expect(emitted[0].payload).toEqual({ fromUserId: ALICE });
+    socket.fire("typing", {
+      conversationId: CONVERSATION,
+      userId: "attacker",
+      fromUserId: "attacker",
+    });
+
+    expect(socket.emitted[0].payload.userId).toBe(ALICE);
   });
 
   it("caps a flood at the burst allowance", () => {
-    const emitted = [];
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted));
+    registerInboundEvents(socket, context);
 
-    for (let i = 0; i < 50; i += 1) socket.fire("typing", { toUserId: BOB });
+    for (let i = 0; i < 50; i += 1) socket.fire("typing", { conversationId: CONVERSATION });
 
-    // two recipient sockets per accepted event
-    expect(emitted.length / 2).toBe(INBOUND_EVENTS.typing.limit.capacity);
+    expect(socket.emitted).toHaveLength(INBOUND_EVENTS.typing.limit.capacity);
   });
 
   it("charges malformed payloads too, so a garbage flood is still bounded", () => {
-    const emitted = [];
     const socket = makeSocket();
-    registerInboundEvents(socket, makeContext(emitted));
+    registerInboundEvents(socket, context);
 
     const { capacity } = INBOUND_EVENTS.typing.limit;
-    for (let i = 0; i < capacity; i += 1) socket.fire("typing", { toUserId: "junk" });
+    for (let i = 0; i < capacity; i += 1) socket.fire("typing", { conversationId: "junk" });
 
-    socket.fire("typing", { toUserId: BOB });
-    expect(emitted).toEqual([]);
+    socket.fire("typing", { conversationId: CONVERSATION });
+    expect(socket.emitted).toEqual([]);
   });
 
   it("contains a throwing handler instead of dropping the connection", () => {
     const socket = makeSocket();
-    registerInboundEvents(
-      socket,
-      makeContext([], {
-        getReceiverSocketIds: () => {
-          throw new Error("boom");
-        },
-      })
-    );
+    socket.to = () => {
+      throw new Error("boom");
+    };
+    registerInboundEvents(socket, context);
 
-    expect(() => socket.fire("typing", { toUserId: BOB })).not.toThrow();
+    expect(() => socket.fire("typing", { conversationId: CONVERSATION })).not.toThrow();
   });
 });
