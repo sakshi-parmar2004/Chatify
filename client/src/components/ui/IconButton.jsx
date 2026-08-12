@@ -1,6 +1,6 @@
 /**
- * The icon affordance, previously `text-slate-400 hover:text-ink
- * transition-colors` repeated in 18+ places.
+ * The icon affordance, previously a hand-repeated hover/transition triple
+ * in 18+ places.
  *
  * `label` is required rather than optional — every one of those call sites was
  * an icon with no accessible name until an audit added them one at a time.

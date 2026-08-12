@@ -14,7 +14,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="w-full flex items-center justify-center p-3 sm:p-4 bg-surface">
+    <div className="relative z-10 flex w-full items-center justify-center p-3 sm:p-4">
       <div className="relative w-full max-w-6xl md:h-[800px] md:max-h-[calc(100dvh-2rem)]">
         <BorderAnimatedContainer>
           <div className="w-full flex flex-col md:flex-row">
@@ -32,9 +32,9 @@ function LoginPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* EMAIL INPUT */}
                   <div>
-                    <label className="auth-input-label" htmlFor="login-email">Email</label>
+                    <label className="mb-2 block text-sm font-medium text-ink/90" htmlFor="login-email">Email</label>
                     <div className="relative">
-                      <MailIcon className="auth-input-icon" />
+                      <MailIcon className="field-icon" />
 
                       <input
                         type="email"
@@ -49,9 +49,9 @@ function LoginPage() {
 
                   {/* PASSWORD INPUT */}
                   <div>
-                    <label className="auth-input-label" htmlFor="login-password">Password</label>
+                    <label className="mb-2 block text-sm font-medium text-ink/90" htmlFor="login-password">Password</label>
                     <div className="relative">
-                      <LockIcon className="auth-input-icon" />
+                      <LockIcon className="field-icon" />
 
                       <input
                         type="password"
@@ -65,9 +65,9 @@ function LoginPage() {
                   </div>
 
                   {/* SUBMIT BUTTON */}
-                  <button className="auth-btn" type="submit" disabled={isLoggingIn}>
+                  <button className="btn-primary w-full" type="submit" disabled={isLoggingIn}>
                     {isLoggingIn ? (
-                      <LoaderIcon className="w-full h-5 animate-spin text-center" />
+                      <LoaderIcon className="mx-auto size-5 animate-spin" />
                     ) : (
                       "Sign In"
                     )}
@@ -75,7 +75,7 @@ function LoginPage() {
                 </form>
 
                 <div className="mt-6 text-center">
-                  <Link to="/signup" className="auth-link">
+                  <Link to="/signup" className="btn-ghost text-sm">
                     Don't have an account? Sign Up
                   </Link>
                 </div>
@@ -83,7 +83,7 @@ function LoginPage() {
             </div>
 
             {/* FORM ILLUSTRATION - RIGHT SIDE */}
-            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
+            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-accent/[0.07] to-transparent">
               <div>
                 <img
                   src="/login.png"
@@ -94,9 +94,9 @@ function LoginPage() {
                   <h3 className="text-xl font-medium text-accent-soft">Connect anytime, anywhere</h3>
 
                   <div className="mt-4 flex justify-center gap-4">
-                    <span className="auth-badge">Free</span>
-                    <span className="auth-badge">Easy Setup</span>
-                    <span className="auth-badge">Private</span>
+                    <span className="pill">Free</span>
+                    <span className="pill">Easy Setup</span>
+                    <span className="pill">Private</span>
                   </div>
                 </div>
               </div>

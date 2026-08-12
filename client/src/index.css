@@ -118,6 +118,13 @@
     box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
   }
 
+  /* A leading icon inside a `.field`. The field needs its own left padding to
+     make room — `.field.pl-10` at the call site. */
+  .field-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2;
+    color: rgb(var(--text-faint));
+  }
+
   .icon-btn {
     @apply shrink-0 rounded-lg p-2 transition-colors;
     color: rgb(var(--text-muted));

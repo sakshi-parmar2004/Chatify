@@ -254,7 +254,7 @@ function MessageInput() {
             else emitStopTyping();
           }}
           onPaste={handlePaste}
-          className="flex-1 min-w-0 bg-slate-800/50 border border-line/15/50 rounded-lg py-2 px-3 sm:px-4 text-ink placeholder-slate-400"
+          className="field flex-1 sm:px-4"
           placeholder="Type your message..."
         />
 

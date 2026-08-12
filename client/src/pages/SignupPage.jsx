@@ -14,7 +14,7 @@ function SignupPage() {
   };
 
   return (
-    <div className="w-full flex items-center justify-center p-3 sm:p-4 bg-surface">
+    <div className="relative z-10 flex w-full items-center justify-center p-3 sm:p-4">
       <div className="relative w-full max-w-6xl md:h-[800px] md:max-h-[calc(100dvh-2rem)]">
         <BorderAnimatedContainer>
           <div className="w-full flex flex-col md:flex-row">
@@ -32,9 +32,9 @@ function SignupPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* FULL NAME */}
                   <div>
-                    <label className="auth-input-label" htmlFor="signup-name">Full Name</label>
+                    <label className="mb-2 block text-sm font-medium text-ink/90" htmlFor="signup-name">Full Name</label>
                     <div className="relative">
-                      <UserIcon className="auth-input-icon" />
+                      <UserIcon className="field-icon" />
 
                       <input
                         type="text"
@@ -49,9 +49,9 @@ function SignupPage() {
 
                   {/* EMAIL INPUT */}
                   <div>
-                    <label className="auth-input-label" htmlFor="signup-email">Email</label>
+                    <label className="mb-2 block text-sm font-medium text-ink/90" htmlFor="signup-email">Email</label>
                     <div className="relative">
-                      <MailIcon className="auth-input-icon" />
+                      <MailIcon className="field-icon" />
 
                       <input
                         type="email"
@@ -66,9 +66,9 @@ function SignupPage() {
 
                   {/* PASSWORD INPUT */}
                   <div>
-                    <label className="auth-input-label" htmlFor="signup-password">Password</label>
+                    <label className="mb-2 block text-sm font-medium text-ink/90" htmlFor="signup-password">Password</label>
                     <div className="relative">
-                      <LockIcon className="auth-input-icon" />
+                      <LockIcon className="field-icon" />
 
                       <input
                         type="password"
@@ -82,9 +82,9 @@ function SignupPage() {
                   </div>
 
                   {/* SUBMIT BUTTON */}
-                  <button className="auth-btn" type="submit" disabled={isSigningUp}>
+                  <button className="btn-primary w-full" type="submit" disabled={isSigningUp}>
                     {isSigningUp ? (
-                      <LoaderIcon className="w-full h-5 animate-spin text-center" />
+                      <LoaderIcon className="mx-auto size-5 animate-spin" />
                     ) : (
                       "Create Account"
                     )}
@@ -92,7 +92,7 @@ function SignupPage() {
                 </form>
 
                 <div className="mt-6 text-center">
-                  <Link to="/login" className="auth-link">
+                  <Link to="/login" className="btn-ghost text-sm">
                     Already have an account? Login
                   </Link>
                 </div>
@@ -100,7 +100,7 @@ function SignupPage() {
             </div>
 
             {/* FORM ILLUSTRATION - RIGHT SIDE */}
-            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-slate-800/20 to-transparent">
+            <div className="hidden md:w-1/2 md:flex items-center justify-center p-6 bg-gradient-to-bl from-accent/[0.07] to-transparent">
               <div>
                 <img
                   src="/signup.png"
@@ -111,9 +111,9 @@ function SignupPage() {
                   <h3 className="text-xl font-medium text-accent-soft">Start Your Journey Today</h3>
 
                   <div className="mt-4 flex justify-center gap-4">
-                    <span className="auth-badge">Free</span>
-                    <span className="auth-badge">Easy Setup</span>
-                    <span className="auth-badge">Private</span>
+                    <span className="pill">Free</span>
+                    <span className="pill">Easy Setup</span>
+                    <span className="pill">Private</span>
                   </div>
                 </div>
               </div>
