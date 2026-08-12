@@ -4,6 +4,7 @@ import http from "http";
 import { env_variable } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
 import { markPendingAsDelivered } from "./receipts.js";
+import { registerInboundEvents } from "./socketEvents.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -51,6 +52,10 @@ io.on("connection", (socket) => {
     })
     .catch((error) => console.error("Error flushing delivered receipts:", error.message));
 
+  // every client -> server event goes through the registry, which owns payload
+  // validation and the per-socket rate limit
+  registerInboundEvents(socket, { io, getReceiverSocketIds, userId });
+
   // with socket.on we listen for events from clients
   socket.on("disconnect", () => {
     const sockets = userSocketMap.get(userId);
@@ -61,6 +66,10 @@ io.on("connection", (socket) => {
     if (sockets.size === 0) userSocketMap.delete(userId);
 
     io.emit("getOnlineUsers", [...userSocketMap.keys()]);
+    // Nothing is emitted here to clear a "typing…" indicator: the server does
+    // not track who this socket was composing to, and finding out would mean
+    // telling every online user. The client expires the indicator on a timer
+    // instead, which also covers a dropped stopTyping.
   });
 });
 

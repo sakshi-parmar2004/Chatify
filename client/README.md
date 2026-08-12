@@ -84,8 +84,9 @@ Actions: `checkAuth`, `signup`, `login`, `logout`, `updateProfile`, `connectSock
 | `isSoundEnabled` | Persisted to `localStorage` |
 | `unreadCounts` | `{ [partnerId]: number }`. Kept outside `chats` so a sidebar refetch cannot clobber a live increment. |
 | `receipts` | `{ [partnerId]: { deliveredAt, readAt } }` — see [Read receipts](#read-receipts) |
+| `typingUsers` | `{ [partnerId]: true }` for partners currently composing |
 
-Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `applyMessageToChats`, `markConversationAsRead`, `subscribeToInbox`, `unsubscribeFromInbox`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
+Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `applyMessageToChats`, `markConversationAsRead`, `emitTyping`, `emitStopTyping`, `subscribeToInbox`, `unsubscribeFromInbox`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
 
 `useChatStore` reaches into `useAuthStore` via `useAuthStore.getState()` for the socket and the current user id — a one-way dependency. Keep it that way: `useAuthStore` must not import `useChatStore`.
 
@@ -103,6 +104,11 @@ On mount, `App.jsx` calls `checkAuth()`, which hits `/auth/get-user` to restore 
 - **`newMessage`** — the message document, for any conversation. Also echoed back to the sender's own tabs.
 - **`messagesDelivered`** / **`messagesRead`** — receipt watermarks for messages *you* sent
 - **`conversationRead`** — another of your own tabs read a conversation; clear its badge
+- **`userTyping`** / **`userStoppedTyping`** — the other party is composing
+
+The client emits `typing` / `stopTyping`, throttled to one every two seconds. Indicators
+**expire on a 5s timer** rather than trusting `stopTyping` to arrive — a closed tab or a
+dropped connection never sends one, and a stuck "typing…" is worse than a late one.
 
 **There is one inbox listener for the whole session**, subscribed in `ChatPage` and owned by `useChatStore` (`subscribeToInbox` / `unsubscribeFromInbox`). It is deliberately *not* per-conversation: unread badges have to update for chats that are not open, and a per-conversation listener discards exactly those messages. `ChatContainer` no longer subscribes to anything.
 

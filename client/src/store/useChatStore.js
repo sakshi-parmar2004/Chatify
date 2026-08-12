@@ -6,6 +6,17 @@ import { useAuthStore } from "./useAuthStore";
 const errorMessage = (error, fallback = "Something went wrong") =>
   error?.response?.data?.message || fallback;
 
+// Typing indicators are ephemeral, so their timers live at module scope rather
+// than in the store — nothing renders off them and keeping them out of state
+// avoids a re-render per keystroke.
+const TYPING_THROTTLE_MS = 2000;
+// Longer than the throttle, so a steady typist never flickers, but short enough
+// that a dropped connection clears within a beat.
+const TYPING_EXPIRY_MS = 5000;
+
+let lastTypingEmit = 0;
+const typingTimers = new Map();
+
 // A receipt is a watermark, not a list of ids. It has to apply to messages that
 // reach this client *after* the receipt did — a send still in flight, or an echo
 // from another tab — otherwise a receipt that overtakes its message strands that
@@ -38,6 +49,9 @@ export const useChatStore = create((set, get) => ({
   unreadCounts: {},
   // { [partnerId]: { deliveredAt, readAt } } — see applyReceipt above
   receipts: {},
+  // partner ids currently composing. Entries expire on a timer rather than
+  // relying on a stopTyping that a dropped connection would never send.
+  typingUsers: {},
 
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
@@ -201,6 +215,32 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // Throttled so a held-down key cannot become one emit per character — the
+  // server charges every inbound event against a per-socket budget, and this
+  // keeps a normal typist well inside it.
+  emitTyping: () => {
+    const { selectedUser } = get();
+    const socket = useAuthStore.getState().socket;
+    if (!socket || !selectedUser) return;
+
+    const now = Date.now();
+    if (now - lastTypingEmit < TYPING_THROTTLE_MS) return;
+
+    lastTypingEmit = now;
+    socket.emit("typing", { toUserId: selectedUser._id });
+  },
+
+  emitStopTyping: () => {
+    const { selectedUser } = get();
+    const socket = useAuthStore.getState().socket;
+    if (!socket || !selectedUser) return;
+
+    // let the next keystroke emit immediately rather than waiting out the
+    // throttle window it never used
+    lastTypingEmit = 0;
+    socket.emit("stopTyping", { toUserId: selectedUser._id });
+  },
+
   // One listener for the whole session, not one per open conversation: unread
   // badges have to update for conversations that are not currently open.
   subscribeToInbox: () => {
@@ -283,6 +323,35 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on("userTyping", ({ fromUserId }) => {
+      set((state) => ({ typingUsers: { ...state.typingUsers, [fromUserId]: true } }));
+
+      // Every event restarts the clock. This is what makes the indicator
+      // self-healing: a stopTyping that never arrives, or a sender who closes
+      // the tab mid-word, clears on its own.
+      clearTimeout(typingTimers.get(fromUserId));
+      typingTimers.set(
+        fromUserId,
+        setTimeout(() => {
+          typingTimers.delete(fromUserId);
+          set((state) => {
+            const { [fromUserId]: _removed, ...rest } = state.typingUsers;
+            return { typingUsers: rest };
+          });
+        }, TYPING_EXPIRY_MS)
+      );
+    });
+
+    socket.on("userStoppedTyping", ({ fromUserId }) => {
+      clearTimeout(typingTimers.get(fromUserId));
+      typingTimers.delete(fromUserId);
+
+      set((state) => {
+        const { [fromUserId]: _removed, ...rest } = state.typingUsers;
+        return { typingUsers: rest };
+      });
+    });
+
     // another of our own tabs read this conversation
     socket.on("conversationRead", ({ partnerId }) => {
       set((state) => ({
@@ -302,5 +371,12 @@ export const useChatStore = create((set, get) => ({
     socket.off("messagesDelivered");
     socket.off("messagesRead");
     socket.off("conversationRead");
+    socket.off("userTyping");
+    socket.off("userStoppedTyping");
+
+    // pending expiry timers would otherwise fire into a torn-down subscription
+    for (const timer of typingTimers.values()) clearTimeout(timer);
+    typingTimers.clear();
+    set({ typingUsers: {} });
   },
 }));

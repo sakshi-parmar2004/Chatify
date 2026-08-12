@@ -1,6 +1,6 @@
 # Chatify — Product Requirements
 
-> **Status: 3 of 34 shipped, across 6 phases.** Only Phase 0 is started, and only partly.
+> **Status: 5 of 34 shipped, across 6 phases.** Phase 0 is complete; Phases 1-5 are not started.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -108,10 +108,10 @@ A working one-to-one chat app. Stack, API reference and setup are in the
   derived at read time by aggregating over `Message`, which carries `senderId` and
   `receiverId`. Groups, mute, mentions, pinning and per-conversation settings all need a
   real conversation record.
-- **The socket channel is one-directional.** The server emits; the only inbound handler is
-  `disconnect`. Typing indicators, do-not-disturb and presence subscriptions all need an
-  inbound event surface that does not exist yet. Arcjet rate-limits HTTP only — sockets are
-  unguarded.
+- **The inbound socket surface is new and deliberately small.** `PLT-02` established it with
+  two events. Arcjet still rate-limits HTTP only, so the socket budget is enforced by a
+  per-socket token bucket rather than by Arcjet — anything added to that registry inherits
+  validation and rate limiting, and anything added outside it does not.
 - **Presence is a full-roster broadcast.** Every connect and disconnect emits the complete
   list of online user ids to every connected client. That is O(users²) in messages and
   discloses the whole roster to everyone. "Last seen" and do-not-disturb cannot be built on it.
@@ -121,10 +121,14 @@ A working one-to-one chat app. Stack, API reference and setup are in the
 - **There are no automated tests.** `X-03`. Every phase below inherits this risk until it is
   closed.
 
-**Shipped since this document was opened:** read receipts and unread badges
-([`MSG-01`](#msg-01--read-receipts--phase-0), [`MSG-02`](#msg-02--unread-badges--phase-0)),
-which also delivered the global inbox listener
-([`PLT-03`](#plt-03--global-inbox-listener--phase-0)).
+**Shipped since this document was opened — all of Phase 0:** read receipts and unread
+badges ([`MSG-01`](#msg-01--read-receipts--phase-0), [`MSG-02`](#msg-02--unread-badges--phase-0)),
+the global inbox listener ([`PLT-03`](#plt-03--global-inbox-listener--phase-0)), the inbound
+socket contract ([`PLT-02`](#plt-02--inbound-socket-event-contract--phase-0)) and typing
+indicators ([`MSG-03`](#msg-03--typing-indicators--phase-0)).
+
+The inbound contract is hand-validated rather than Zod-backed, because `X-05` is still open.
+It is written as one registry so that folding Zod in later is a change to that file alone.
 
 ---
 
@@ -248,7 +252,7 @@ it across five.
 
 **Depends on** `X-05` (share the schemas with HTTP rather than growing a second validator)
 
-**Status** Phase 0 · ⬜ Open — see [`DEC-06`](#dec-06--inbound-socket-events-and-abuse-control)
+**Status** Phase 0 · ✅ Shipped — see [`DEC-06`](#dec-06--inbound-socket-events-and-abuse-control)
 
 ### PLT-03 — Global inbox listener — Phase 0
 
@@ -372,7 +376,7 @@ to prove that contract with.
 
 **Depends on** `PLT-02`
 
-**Status** Phase 0 · ⬜ Open
+**Status** Phase 0 · ✅ Shipped
 
 ### MSG-04 — Edit and delete — Phase 2
 
@@ -1055,7 +1059,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 
 | Phase | Contents | What it unlocks | Gate |
 |---|---|---|---|
-| **0 — Receipts and the inbound channel** | `MSG-01` ✅, `MSG-02` ✅, `PLT-03` ✅, `MSG-03`, `PLT-02` | The inbound socket surface and the global listener that every later phase assumes | `X-03` for the new endpoints |
+| **0 — Receipts and the inbound channel** ✅ | `MSG-01`, `MSG-02`, `PLT-03`, `MSG-03`, `PLT-02` — all shipped | The inbound socket surface and the global listener that every later phase assumes | `X-03` for the new endpoints |
 | **1 — Conversation migration** | `PLT-01`, `PLT-04` | Literally everything below | Backfill verified by count; rollback rehearsed |
 | **2 — Message polish** | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** | `MED-01`–`MED-06`, `MSG-09` | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
@@ -1122,13 +1126,13 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | ID | Title | Phase | State | Depends on |
 |---|---|---|---|---|
 | `PLT-01` | The conversation model | 1 | ⬜ | `X-03` |
-| `PLT-02` | Inbound socket event contract | 0 | ⬜ | `X-05` |
+| `PLT-02` | Inbound socket event contract | 0 | ✅ | `X-05` |
 | `PLT-03` | Global inbox listener | 0 | ✅ | — |
 | `PLT-04` | Conversation-scoped socket rooms | 1 | ⬜ | `PLT-01` |
 | `PLT-05` | Scoped presence | 5 | ⬜ | `PLT-01`, `PLT-02` |
 | `MSG-01` | Read receipts | 0 | ✅ | `PLT-03` |
 | `MSG-02` | Unread badges | 0 | ✅ | `MSG-01`, `PLT-03` |
-| `MSG-03` | Typing indicators | 0 | ⬜ | `PLT-02` |
+| `MSG-03` | Typing indicators | 0 | ✅ | `PLT-02` |
 | `MSG-04` | Edit and delete | 2 | ⬜ | `PLT-01`, `X-05` |
 | `MSG-05` | Reply and quote | 2 | ⬜ | `PLT-01`, `MSG-04`, `MSG-08` |
 | `MSG-06` | Reactions | 2 | ⬜ | `PLT-01` |

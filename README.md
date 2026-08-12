@@ -8,6 +8,7 @@ A real-time one-to-one chat application. React + Vite on the front end, Express 
 - **One-to-one messaging** with text and image attachments
 - **Read receipts** — sent, delivered and read states on every message you send
 - **Unread badges** — per-conversation counts, with a last-message preview and most-recent-first ordering
+- **Typing indicators** — throttled, rate-limited, and self-expiring so they never stick
 - **Live presence** — online/offline indicators pushed over Socket.IO
 - **Contacts and chats tabs** — browse all users, or just the ones you've talked to
 - **Profile pictures** uploaded to Cloudinary
@@ -178,8 +179,21 @@ The socket handshake authenticates using the same `token` cookie.
 | `messagesRead` | server → client | `{ partnerId, readAt }` | Sent to the original sender when the recipient reads the conversation. `partnerId` is the reader. |
 | `conversationRead` | server → client | `{ partnerId, readAt }` | Sent to the reader's *own* other sockets so every tab clears the unread badge. `partnerId` is the sender they read. |
 
-There are no client → server events. Marking a conversation read goes over REST
-(`PATCH /api/messages/read/:id`) so it inherits the Arcjet and auth middleware.
+Client → server events go through a single registry (`server/src/lib/socketEvents.js`) that
+owns payload validation and a per-socket token bucket. Arcjet guards HTTP only, so anything
+added outside that registry is unvalidated and unbounded — add events to it, not to
+`socket.js` directly. The sender's identity always comes from the authenticated socket; a
+payload never says who sent it.
+
+| Event | Direction | Payload | Description |
+|---|---|---|---|
+| `typing` | client → server | `{ toUserId }` | Relayed to `toUserId` as `userTyping`. Throttled client-side to one per 2s. |
+| `stopTyping` | client → server | `{ toUserId }` | Relayed as `userStoppedTyping`. |
+| `userTyping` | server → client | `{ fromUserId }` | The other party is composing. Expires client-side after 5s, so a dropped connection cannot leave it stuck. |
+| `userStoppedTyping` | server → client | `{ fromUserId }` | They stopped, cleared the box, or sent. |
+
+Marking a conversation read is REST (`PATCH /api/messages/read/:id`) rather than a socket
+event, so it inherits the Arcjet and auth middleware.
 
 `deliveredAt` and `readAt` are watermarks, not lists of message ids: the client applies them
 to every message older than the timestamp, including ones that arrive after the receipt did.

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useKeyboardSound from "../hooks/useKeyboardSound";
 import { useChatStore } from "../store/useChatStore";
 import toast from "react-hot-toast";
@@ -11,12 +11,19 @@ function MessageInput() {
 
   const fileInputRef = useRef(null);
 
-  const { sendMessage, isSoundEnabled } = useChatStore();
+  // leaving the conversation mid-sentence should not leave the other side
+  // watching an indicator that never resolves
+  useEffect(() => emitStopTyping, [emitStopTyping]);
+
+  const { sendMessage, isSoundEnabled, emitTyping, emitStopTyping } = useChatStore();
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
     if (isSoundEnabled) playRandomKeyStrokeSound();
+
+    // the message itself supersedes the indicator
+    emitStopTyping();
 
     sendMessage({
       text: text.trim(),
@@ -80,8 +87,12 @@ function MessageInput() {
           type="text"
           value={text}
           onChange={(e) => {
-            setText(e.target.value);
+            const next = e.target.value;
+            setText(next);
             if (isSoundEnabled) playRandomKeyStrokeSound();
+            // clearing the box is a deliberate "never mind", not a pause
+            if (next.trim()) emitTyping();
+            else emitStopTyping();
           }}
           className="flex-1 min-w-0 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-3 sm:px-4 text-slate-200 placeholder-slate-400"
           placeholder="Type your message..."
