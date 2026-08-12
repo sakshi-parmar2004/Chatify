@@ -24,6 +24,14 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    // Nullable during the expand phase of PLT-01: writes populate it, reads do
+    // not depend on it yet, and the backfill fills it in for existing rows.
+    // It becomes required — and receiverId is dropped — at the contract step.
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      default: null,
+    },
     text: {
       type: String,
       trim: true,
@@ -54,6 +62,11 @@ messageSchema.index({ receiverId: 1, senderId: 1, createdAt: -1 });
 // mark-as-read update ({ receiverId, senderId, status: $in }). senderId comes
 // last so the flush, which does not filter on it, still uses the index prefix.
 messageSchema.index({ receiverId: 1, status: 1, senderId: 1 });
+
+// The query shape everything moves to at the contract step: a conversation's
+// messages, newest first. Also serves the unread count, which becomes
+// "messages in this conversation newer than my read cursor".
+messageSchema.index({ conversationId: 1, createdAt: -1 });
 
 const Message = mongoose.model("Message", messageSchema);
 

@@ -17,6 +17,7 @@ const { connectTestDb, disconnectTestDb, clearCollections, registerUser } =
   await import("./helpers.js");
 const Message = (await import("../models/message.model.js")).default;
 const { MESSAGE_STATUS } = await import("../models/message.model.js");
+const Conversation = (await import("../models/conversation.model.js")).default;
 
 beforeAll(connectTestDb);
 afterAll(disconnectTestDb);
@@ -72,6 +73,26 @@ describe("POST /api/messages/send/:id", () => {
     const bob = await registerUser(request, app);
     const res = await request(app).post(`/api/messages/send/${bob.id}`).send({ text: "hi" });
     expect(res.status).toBe(401);
+  });
+
+  // PLT-01 expand step: writes carry both shapes, reads still use the old one
+  it("stamps the message with its conversation and advances lastMessageAt", async () => {
+    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+
+    const first = await send(alice, bob.id, { text: "one" });
+    expect(first.body.conversationId).toBeTruthy();
+
+    const conversation = await Conversation.findById(first.body.conversationId);
+    expect(conversation.participants.map(String).sort()).toEqual([alice.id, bob.id].sort());
+    expect(conversation.lastMessageAt.toISOString()).toBe(first.body.createdAt);
+
+    // the reply belongs to the same conversation, not a second one
+    const reply = await send(bob, alice.id, { text: "two" });
+    expect(reply.body.conversationId).toBe(first.body.conversationId);
+    expect(await Conversation.countDocuments({})).toBe(1);
+
+    const updated = await Conversation.findById(first.body.conversationId);
+    expect(updated.lastMessageAt.toISOString()).toBe(reply.body.createdAt);
   });
 
   it("rejects an image that is not a data URI, before Cloudinary is called", async () => {

@@ -4,6 +4,8 @@ import Message, { MESSAGE_STATUS, UNREAD_STATUSES } from "../models/message.mode
 import User from "../models/user.model.js";
 import { io, getReceiverSocketIds } from "../lib/socket.js";
 import { validateImageDataUri } from "../lib/validateImage.js";
+import Conversation from "../models/conversation.model.js";
+import { findOrCreateDirectConversation } from "../lib/conversations.js";
 
 export const getAllContacts = async (req, res) => {
   try {
@@ -81,9 +83,15 @@ export const sendMessage = async (req, res) => {
     // between the check and the save, leaving the message stuck on "sent".
     const receiverSocketIds = getReceiverSocketIds(receiverId);
 
+    // Dual-write for PLT-01. Reads still go through senderId/receiverId; this
+    // is here so that by the time the contract step lands, every message
+    // written since the expand already carries its conversation.
+    const conversation = await findOrCreateDirectConversation(senderId, receiverId);
+
     const newMessage = new Message({
       senderId,
       receiverId,
+      conversationId: conversation._id,
       text,
       image: imageUrl,
       // if they have a socket open, the emit below is the delivery
@@ -91,6 +99,12 @@ export const sendMessage = async (req, res) => {
     });
 
     await newMessage.save();
+
+    // keeps the conversation list sortable without reaching into messages
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $set: { lastMessageAt: newMessage.createdAt } }
+    );
 
     // push to every socket the recipient has open (they may have several tabs)
     for (const socketId of receiverSocketIds) {
