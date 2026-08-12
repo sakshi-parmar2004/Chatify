@@ -16,7 +16,8 @@ function ChatContainer() {
     unsubscribeFromMessages,
   } = useChatStore();
   const { authUser } = useAuthStore();
-  const messageEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const isPinnedToBottomRef = useRef(true);
 
   useEffect(() => {
     getMessagesByUserId(selectedUser._id);
@@ -26,17 +27,36 @@ function ChatContainer() {
     return () => unsubscribeFromMessages();
   }, [selectedUser, getMessagesByUserId, subscribeToMessages, unsubscribeFromMessages]);
 
+  // opening a different conversation should always land at the newest message
   useEffect(() => {
-    if (messageEndRef.current) {
-      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    isPinnedToBottomRef.current = true;
+  }, [selectedUser]);
+
+  // Scroll the container itself. scrollIntoView() also scrolls every scrollable
+  // ancestor, which drags the whole page down and hides the headers.
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || !isPinnedToBottomRef.current) return;
+
+    container.scrollTop = container.scrollHeight;
   }, [messages]);
+
+  // Once the user scrolls up to read history, stop yanking them back down;
+  // resume auto-scrolling when they return to the bottom.
+  const handleScroll = (event) => {
+    const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
+    isPinnedToBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
+  };
 
   return (
     <>
       <ChatHeader />
       {/* min-h-0 is what allows this to scroll inside the flex column */}
-      <div className="flex-1 min-h-0 px-3 sm:px-6 overflow-y-auto py-4 sm:py-8">
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 min-h-0 px-3 sm:px-6 overflow-y-auto py-4 sm:py-8"
+      >
         {messages.length > 0 && !isMessagesLoading ? (
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.map((msg) => (
@@ -68,13 +88,12 @@ function ChatContainer() {
                 </div>
               </div>
             ))}
-            {/* 👇 scroll target */}
-            <div ref={messageEndRef} />
           </div>
         ) : isMessagesLoading ? (
           <MessagesLoadingSkeleton />
         ) : (
-          <NoChatHistoryPlaceholder name={selectedUser.name} />
+          // keyed so switching conversations remounts it and re-rolls the suggestions
+          <NoChatHistoryPlaceholder key={selectedUser._id} name={selectedUser.name} />
         )}
       </div>
 
