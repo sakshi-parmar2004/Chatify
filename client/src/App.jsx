@@ -1,5 +1,5 @@
 import { Routes,Route, Navigate } from 'react-router'
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 
 import ChatPage from './pages/ChatPage'
 import LoginPage from './pages/LoginPage'
@@ -16,12 +16,13 @@ useEffect(()=>
   checkAuth();
 
 },[checkAuth]);
-// console.log(authUser);
 
-if(isCheckingAuth)
-{
-<PageLoader/>
+// authUser is still null while the session is being restored, so rendering the
+// routes here would bounce a logged-in user to /login and back
+if (isCheckingAuth) {
+  return <PageLoader/>;
 }
+
   return (
     <div className="min-h-screen bg-slate-900 relative flex items-center justify-center p-4 overflow-hidden">
       {/* DECORATORS - GRID BG & GLOW SHAPES */}

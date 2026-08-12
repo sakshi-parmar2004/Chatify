@@ -29,8 +29,18 @@ function MessageInput() {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+    // no file when the picker is dismissed
+    if (!file) return;
+
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file");
+      e.target.value = "";
+      return;
+    }
+    // the server rejects anything larger, so fail before reading it
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Image must be smaller than 3MB");
+      e.target.value = "";
       return;
     }
 
@@ -71,7 +81,7 @@ function MessageInput() {
           value={text}
           onChange={(e) => {
             setText(e.target.value);
-            isSoundEnabled && playRandomKeyStrokeSound();
+            if (isSoundEnabled) playRandomKeyStrokeSound();
           }}
           className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
           placeholder="Type your message..."

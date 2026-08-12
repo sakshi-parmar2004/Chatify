@@ -1,5 +1,10 @@
 # Improvements
 
+> **Status: 18 done, 1 partly done, 10 open.** Each heading carries its state.
+> The open items are the ones that need a product decision, add a dependency, or
+> are projects rather than edits — they were deliberately not bundled into the
+> bug-fix pass. See [Still open](#still-open) at the end.
+
 Enhancements and hardening work — things that are **not broken**, but are missing, fragile, or will hurt as the app grows. Actual defects are tracked separately in [bugs.md](bugs.md).
 
 Priority key:
@@ -23,7 +28,7 @@ Priority key:
 
 # Cross-cutting
 
-## X-01 **P1** Remove the `chatify: "file:.."` self-dependency
+## X-01 **P1** Remove the `chatify: "file:.."` self-dependency — ✅ Done
 
 **Files:** [client/package.json:14](client/package.json#L14), [server/package.json:31](server/package.json#L31)
 
@@ -41,7 +46,7 @@ This produces `client/node_modules/chatify -> ../..` — a symlink pointing at t
 
 ---
 
-## X-02 **P1** Add `.env.example`
+## X-02 **P1** Add `.env.example` — ✅ Done
 
 There is no template for the 15 environment variables the server needs. `server/.env` is correctly gitignored and untracked, but a new contributor has no way to discover what to set beyond reading [env.js](server/src/lib/env.js) and grepping for usages.
 
@@ -49,7 +54,7 @@ There is no template for the 15 environment variables the server needs. `server/
 
 ---
 
-## X-03 **P1** No automated tests anywhere
+## X-03 **P1** No automated tests anywhere — ⬜ Open
 
 `server/package.json` still carries the placeholder `"test": "echo \"Error: no test specified\" && exit 1"`. The client has no test script at all.
 
@@ -59,7 +64,7 @@ Given that [bugs.md](bugs.md) lists 23 defects — several of them one-line mist
 
 ---
 
-## X-04 **P2** No CI pipeline
+## X-04 **P2** No CI pipeline — ⬜ Open
 
 Nothing runs lint, build, or tests on push. `oxlint` exists but must be run by hand, and only two rules are enabled.
 
@@ -67,7 +72,7 @@ Nothing runs lint, build, or tests on push. `oxlint` exists but must be run by h
 
 ---
 
-## X-05 **P2** Introduce schema validation for request bodies
+## X-05 **P2** Introduce schema validation for request bodies — ⬜ Open
 
 Validation is hand-rolled and inconsistent — [auth.controller.js](server/src/controller/auth.controller.js) checks presence, length, and a regex inline; [message.controller.js](server/src/controller/message.controller.js) checks only that one of `text`/`image` exists. Nothing validates types, so a non-string `password` or an array `text` reaches Mongoose.
 
@@ -79,7 +84,7 @@ Validation is hand-rolled and inconsistent — [auth.controller.js](server/src/c
 
 # Backend
 
-## BE-I-01 **P1** Add `helmet`
+## BE-I-01 **P1** Add `helmet` — ✅ Done
 
 **File:** [server/src/index.js](server/src/index.js)
 
@@ -89,7 +94,7 @@ Validation is hand-rolled and inconsistent — [auth.controller.js](server/src/c
 
 ---
 
-## BE-I-02 **P1** Validate and bound image uploads
+## BE-I-02 **P1** Validate and bound image uploads — ✅ Done
 
 **Files:** [auth.controller.js:82](server/src/controller/auth.controller.js#L82), [message.controller.js:58-61](server/src/controller/message.controller.js#L58-L61)
 
@@ -101,7 +106,7 @@ The body limit is `5mb` ([index.js:14](server/src/index.js#L14)), which after ba
 
 ---
 
-## BE-I-03 **P1** Index the `Message` collection
+## BE-I-03 **P1** Index the `Message` collection — ✅ Done
 
 **File:** [server/src/models/message.model.js](server/src/models/message.model.js)
 
@@ -118,7 +123,7 @@ Cheap now, effectively mandatory past a few thousand messages.
 
 ---
 
-## BE-I-04 **P1** Rewrite `getChatPartners` — it loads every message into memory
+## BE-I-04 **P1** Rewrite `getChatPartners` — it loads every message into memory — ✅ Done
 
 **File:** [server/src/controller/message.controller.js:86-101](server/src/controller/message.controller.js#L86-L101)
 
@@ -136,7 +141,7 @@ Every message the user has ever sent or received is pulled into Node, mapped, an
 
 ---
 
-## BE-I-05 **P2** Paginate conversation history
+## BE-I-05 **P2** Paginate conversation history — ⬜ Open
 
 **File:** [server/src/controller/message.controller.js:22](server/src/controller/message.controller.js#L22)
 
@@ -146,7 +151,7 @@ Every message the user has ever sent or received is pulled into Node, mapped, an
 
 ---
 
-## BE-I-06 **P2** Add a centralized error handler
+## BE-I-06 **P2** Add a centralized error handler — 🟡 Partly done
 
 Every controller repeats the same `try/catch` → `console.log` → generic 500 block, and the response shape is inconsistent: some return `{ message }` ([auth.controller.js:45](server/src/controller/auth.controller.js#L45)), others `{ error }` ([message.controller.js:32](server/src/controller/message.controller.js#L32)). The client only ever reads `.message`, so `{ error }` responses surface as the fallback string.
 
@@ -154,7 +159,7 @@ Every controller repeats the same `try/catch` → `console.log` → generic 500 
 
 ---
 
-## BE-I-07 **P2** Replace `console.log` with structured logging
+## BE-I-07 **P2** Replace `console.log` with structured logging — ⬜ Open
 
 **Files:** throughout — [socket.js:29](server/src/lib/socket.js#L29), [socket.auth.middleware.js:37](server/src/middleware/socket.auth.middleware.js#L37), [emailHandler.js:20](server/src/emails/emailHandler.js#L20), every controller
 
@@ -164,7 +169,7 @@ Logging is `console.log`/`console.error` with no levels, no request correlation,
 
 ---
 
-## BE-I-08 **P2** Add a health check endpoint
+## BE-I-08 **P2** Add a health check endpoint — ✅ Done
 
 Nothing exposes liveness or DB connectivity. A platform health check against `/` in development gets a 404 (the root handler was removed in `78bb21c`).
 
@@ -172,7 +177,7 @@ Nothing exposes liveness or DB connectivity. A platform health check against `/`
 
 ---
 
-## BE-I-09 **P2** Handle DB connection loss after startup
+## BE-I-09 **P2** Handle DB connection loss after startup — ✅ Done
 
 **File:** [server/src/lib/db.js](server/src/lib/db.js)
 
@@ -182,7 +187,7 @@ Nothing exposes liveness or DB connectivity. A platform health check against `/`
 
 ---
 
-## BE-I-10 **P3** Graceful shutdown
+## BE-I-10 **P3** Graceful shutdown — ✅ Done
 
 `server.listen` has no `SIGTERM` handler ([index.js:38](server/src/index.js#L38)). On deploy the process is killed with sockets open and requests in flight.
 
@@ -190,7 +195,7 @@ Nothing exposes liveness or DB connectivity. A platform health check against `/`
 
 ---
 
-## BE-I-11 **P3** `connectDB` is called after the server starts listening
+## BE-I-11 **P3** `connectDB` is called after the server starts listening — ✅ Done
 
 **File:** [server/src/index.js:38-41](server/src/index.js#L38-L41)
 
@@ -207,7 +212,7 @@ The server accepts traffic before the database is connected. Mongoose buffers th
 
 ---
 
-## BE-I-12 **P3** Move the email link out of the email handler
+## BE-I-12 **P3** Move the email link out of the email handler — ✅ Done
 
 **File:** [server/src/emails/emailHandler.js:17](server/src/emails/emailHandler.js#L17)
 
@@ -219,7 +224,7 @@ The welcome email hardcodes `https://chatify-km3zy.sevalla.app/` while `CLIENT_U
 
 # Frontend
 
-## FE-I-01 **P1** Add an error boundary
+## FE-I-01 **P1** Add an error boundary — ✅ Done
 
 **File:** [client/src/main.jsx](client/src/main.jsx)
 
@@ -229,7 +234,7 @@ There is no error boundary anywhere in the tree. Any render-time throw — and [
 
 ---
 
-## FE-I-02 **P1** Guard against a missing `authUser` in protected components
+## FE-I-02 **P1** Guard against a missing `authUser` in protected components — ⬜ Open
 
 **Files:** [ProfileHeader.jsx:50](client/src/components/ProfileHeader.jsx#L50), [ChatContainer.jsx:47](client/src/components/ChatContainer.jsx#L47)
 
@@ -239,7 +244,7 @@ Both dereference `authUser` directly (`authUser.profilePic`, `authUser._id`). Th
 
 ---
 
-## FE-I-03 **P2** Configure a Vite dev proxy
+## FE-I-03 **P2** Configure a Vite dev proxy — ✅ Done
 
 **Files:** [client/vite.config.js](client/vite.config.js), [client/src/lib/axios.js:6](client/src/lib/axios.js#L6), [useAuthStore.js:5](client/src/store/useAuthStore.js#L5)
 
@@ -249,7 +254,7 @@ The dev API base URL is hardcoded to `http://localhost:8000` in two separate pla
 
 ---
 
-## FE-I-04 **P2** The message list has no windowing or pagination
+## FE-I-04 **P2** The message list has no windowing or pagination — ⬜ Open
 
 **File:** [client/src/components/ChatContainer.jsx:44](client/src/components/ChatContainer.jsx#L44)
 
@@ -261,7 +266,7 @@ The dev API base URL is hardcoded to `http://localhost:8000` in two separate pla
 
 ---
 
-## FE-I-05 **P2** The chats list does not refresh after messaging a new contact
+## FE-I-05 **P2** The chats list does not refresh after messaging a new contact — ✅ Done
 
 **Files:** [ChatsList.jsx:12-14](client/src/components/ChatsList.jsx#L12-L14), [useChatStore.js:65](client/src/store/useChatStore.js#L65)
 
@@ -271,7 +276,7 @@ The dev API base URL is hardcoded to `http://localhost:8000` in two separate pla
 
 ---
 
-## FE-I-06 **P2** The layout is not responsive
+## FE-I-06 **P2** The layout is not responsive — ⬜ Open
 
 **Files:** [ChatPage.jsx:14-16](client/src/pages/ChatPage.jsx#L14-L16)
 
@@ -283,7 +288,7 @@ Both auth pages *do* handle breakpoints ([LoginPage.jsx:19](client/src/pages/Log
 
 ---
 
-## FE-I-07 **P2** Audio objects are constructed at module scope
+## FE-I-07 **P2** Audio objects are constructed at module scope — ⬜ Open
 
 **Files:** [useKeyboardSound.jsx:2-7](client/src/hooks/useKeyboardSound.jsx#L2-L7), [ProfileHeader.jsx:6](client/src/components/ProfileHeader.jsx#L6)
 
@@ -293,7 +298,7 @@ Five `new Audio(...)` instances are created when the modules are imported, befor
 
 ---
 
-## FE-I-08 **P3** Strip debug logging from the stores
+## FE-I-08 **P3** Strip debug logging from the stores — ✅ Done
 
 **Files:** [axios.js:4](client/src/lib/axios.js#L4), [useAuthStore.js:22](client/src/store/useAuthStore.js#L22), [useAuthStore.js:51](client/src/store/useAuthStore.js#L51), [useAuthStore.js:77](client/src/store/useAuthStore.js#L77), [useChatStore.js:97](client/src/store/useChatStore.js#L97)
 
@@ -303,7 +308,7 @@ Left-over `console.log` calls ship to production, including `console.log("res", 
 
 ---
 
-## FE-I-09 **P3** Accessibility gaps
+## FE-I-09 **P3** Accessibility gaps — ✅ Done
 
 - [ContactList.jsx:26](client/src/components/ContactList.jsx#L26) — avatar `<img>` has no `alt`
 - [ChatsList.jsx:29](client/src/components/ChatsList.jsx#L29), [ChatHeader.jsx:34](client/src/components/ChatHeader.jsx#L34) — icon-only buttons have no `aria-label`
@@ -315,7 +320,7 @@ Left-over `console.log` calls ship to production, including `console.log("res", 
 
 ---
 
-## FE-I-10 **P3** Expand the lint configuration
+## FE-I-10 **P3** Expand the lint configuration — ⬜ Open
 
 **File:** [client/.oxlintrc.json](client/.oxlintrc.json)
 
@@ -325,7 +330,7 @@ Only two rules are enabled. `react-hooks/exhaustive-deps` and `no-undef` are bot
 
 ---
 
-## FE-I-11 **P3** Set the document title and metadata
+## FE-I-11 **P3** Set the document title and metadata — ✅ Done
 
 **File:** [client/index.html:6](client/index.html#L6)
 
@@ -333,7 +338,7 @@ Only two rules are enabled. `react-hooks/exhaustive-deps` and `no-undef` are bot
 
 ---
 
-## FE-I-12 **P3** `ContactList` has no empty state
+## FE-I-12 **P3** `ContactList` has no empty state — ✅ Done
 
 **File:** [client/src/components/ContactList.jsx:16](client/src/components/ContactList.jsx#L16)
 
@@ -341,12 +346,26 @@ Only two rules are enabled. `react-hooks/exhaustive-deps` and `no-undef` are bot
 
 ---
 
-## Suggested sequencing
+## Still open
 
-1. **X-01** — remove the self-dependency; it is a one-line change that de-risks every subsequent install and build.
-2. **X-02 + BE-07** (bugs.md) — env template and boot-time validation, so misconfiguration fails loudly.
-3. **BE-I-01, BE-I-02** — headers and upload bounds, closing out the security work started in [bugs.md](bugs.md).
-4. **BE-I-03, BE-I-04** — the two changes that determine whether the app survives its first thousand messages.
-5. **X-03** — tests, scoped to the auth and messaging round-trips.
+Ten items were deliberately left out of the bug-fix pass. None is blocked — each is
+either a project in its own right, adds a dependency, or changes behaviour in a way
+that should be decided rather than assumed.
 
-Everything else is genuinely incremental and can be picked up opportunistically.
+| ID | Item | Why it was not bundled in |
+|---|---|---|
+| **X-03** | Automated tests | The largest remaining gap, and the one most worth doing next. A real suite is its own piece of work, not a rider on a fix commit. |
+| **X-04** | CI pipeline | Depends on X-03 to be worth much. |
+| **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. |
+| **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. |
+| **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. |
+| **BE-I-07** | Structured logging (pino) | Adds a dependency and touches every log line. The noisiest offenders were cleaned up meanwhile: per-connection socket logs that printed user names and ids are gone, and `console.log` on error paths is now `console.error`. |
+| **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. |
+| **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. |
+| **FE-I-06** | Responsive chat layout | A design decision — how the sidebar and conversation should behave on small screens is a product call, not a bug fix. |
+| **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. |
+| **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. |
+
+Recommended next step: **X-03**. A Vitest + Supertest suite covering the auth flow and
+the message round trip would have caught BE-01, BE-02, BE-05, and BE-11 on its own, and
+it is what makes the rest of this list safe to work through.

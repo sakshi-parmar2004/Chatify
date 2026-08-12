@@ -32,12 +32,13 @@ function SignupPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* FULL NAME */}
                   <div>
-                    <label className="auth-input-label">Full Name</label>
+                    <label className="auth-input-label" htmlFor="signup-name">Full Name</label>
                     <div className="relative">
                       <UserIcon className="auth-input-icon" />
 
                       <input
                         type="text"
+                        id="signup-name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         className="input"
@@ -48,12 +49,13 @@ function SignupPage() {
 
                   {/* EMAIL INPUT */}
                   <div>
-                    <label className="auth-input-label">Email</label>
+                    <label className="auth-input-label" htmlFor="signup-email">Email</label>
                     <div className="relative">
                       <MailIcon className="auth-input-icon" />
 
                       <input
                         type="email"
+                        id="signup-email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         className="input"
@@ -64,12 +66,13 @@ function SignupPage() {
 
                   {/* PASSWORD INPUT */}
                   <div>
-                    <label className="auth-input-label">Password</label>
+                    <label className="auth-input-label" htmlFor="signup-password">Password</label>
                     <div className="relative">
                       <LockIcon className="auth-input-icon" />
 
                       <input
                         type="password"
+                        id="signup-password"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         className="input"

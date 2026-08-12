@@ -24,6 +24,11 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Conversation lookups filter on both participants in either direction, so both
+// orderings are indexed. Without these, every chat load is a collection scan.
+messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, senderId: 1, createdAt: -1 });
+
 const Message = mongoose.model("Message", messageSchema);
 
 export default Message;

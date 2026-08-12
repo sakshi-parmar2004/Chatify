@@ -100,18 +100,13 @@ On mount, `App.jsx` calls `checkAuth()`, which hits `/auth/get-user` to restore 
 - **`getOnlineUsers`** — an array of connected user ids, handled in `useAuthStore` and read by the avatar indicators
 - **`newMessage`** — appended to `messages` if it came from the selected user, subscribed per-conversation in `ChatContainer`
 
-`ChatContainer` subscribes on mount and unsubscribes on cleanup, so the listener is scoped to the open conversation.
-
-> ⚠️ The server's `newMessage` emit is currently commented out, so incoming messages do not arrive live. See **BE-01** in [bugs.md](../bugs.md).
+`ChatContainer` subscribes on mount and unsubscribes on cleanup, so the listener is scoped to the open conversation. A user may have several sockets open at once (multiple tabs), and the server pushes to all of them.
 
 ### API base URL
 
-[src/lib/axios.js](src/lib/axios.js) switches on `import.meta.env.MODE`:
+URLs are relative in every mode. In development the Vite dev server proxies `/api` and `/socket.io` to the API server; in production the API is served from the same origin as the SPA, so no branch is needed.
 
-- **development** → `http://localhost:8000/api`
-- **production** → `/api` (the server serves the built SPA from the same origin)
-
-`useAuthStore` duplicates the same conditional for the socket URL. Adding a Vite dev proxy would remove both — see **FE-I-03** in [improvements.md](../improvements.md).
+The proxy target defaults to `http://localhost:8000` and can be overridden with `VITE_API_TARGET`. See [vite.config.js](vite.config.js).
 
 ## Styling
 
@@ -148,9 +143,8 @@ Audio playback is wrapped in `.catch()` because browsers block it until the user
 
 ## Known issues
 
-Ten frontend defects are documented in [bugs.md](../bugs.md), including two that break normal use:
+The ten frontend defects recorded in [bugs.md](../bugs.md) have been fixed. Remaining frontend work is tracked in [improvements.md](../improvements.md); the notable open items:
 
-- **FE-01** — a stray `console.log` in `login` throws on every successful login, so `connectSocket()` never runs on that path
-- **FE-02** — `PageLoader` is never returned, so logged-in users flash the login screen on load
-
-Twelve frontend enhancements are tracked in [improvements.md](../improvements.md). The highest-value ones: adding an error boundary, a Vite dev proxy, and responsive breakpoints for the chat shell.
+- **FE-I-06** — the chat shell is desktop-only, with a fixed height and no breakpoint handling
+- **FE-I-04** — the message list renders every message with no windowing
+- **FE-I-10** — only two lint rules are enabled; `correctness` and `react-hooks` are off

@@ -207,12 +207,12 @@ Set every variable from the [Environment variables](#environment-variables) sect
 
 ## Known limitations
 
-Worth knowing before you build on this:
+The 23 defects recorded in [bugs.md](bugs.md) have been fixed. What remains, tracked in [improvements.md](improvements.md):
 
-- **The `newMessage` socket emit is commented out** in `server/src/controller/message.controller.js`. Messages are persisted correctly, but the recipient won't see one until they reopen the conversation. Presence updates are unaffected.
-- **A user is tracked by a single socket**, so opening the app in two tabs breaks the online indicator for that user.
-- **Messages are returned unsorted and unpaginated** — fine for small conversations, not for long ones.
-- **No automated tests.** `npm test` in `server/` is still the placeholder that exits with an error.
+- **No automated tests.** `npm test` in `server/` is still the placeholder that exits with an error. This is the largest remaining gap.
+- **Conversation history is unpaginated.** Opening a chat loads every message in it and renders them all — fine for small conversations, not for long ones.
+- **The chat layout is desktop-only.** The shell is a fixed-height, two-pane layout with no breakpoint handling, so it is unusable on a phone. The auth pages are responsive.
+- **Request bodies are validated by hand**, so types are not checked as rigorously as a schema validator would.
 
 ## License
 

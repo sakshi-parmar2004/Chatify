@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import toast from "react-hot-toast";
 import { LogOutIcon, VolumeOffIcon, Volume2Icon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
@@ -15,6 +16,17 @@ function ProfileHeader() {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Image must be smaller than 3MB");
+      e.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -33,12 +45,14 @@ function ProfileHeader() {
           {/* AVATAR */}
           <div className="avatar online">
             <button
+              type="button"
+              aria-label="Change profile picture"
               className="size-14 rounded-full overflow-hidden relative group"
               onClick={() => fileInputRef.current.click()}
             >
               <img
                 src={selectedImg || authUser.profilePic || "/avatar.png"}
-                alt="User image"
+                alt=""
                 className="size-full object-cover"
               />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -69,6 +83,8 @@ function ProfileHeader() {
         <div className="flex gap-4 items-center">
           {/* LOGOUT BTN */}
           <button
+            type="button"
+            aria-label="Log out"
             className="text-slate-400 hover:text-slate-200 transition-colors"
             onClick={logout}
           >
@@ -77,6 +93,9 @@ function ProfileHeader() {
 
           {/* SOUND TOGGLE BTN */}
           <button
+            type="button"
+            aria-label={isSoundEnabled ? "Mute sounds" : "Unmute sounds"}
+            aria-pressed={isSoundEnabled}
             className="text-slate-400 hover:text-slate-200 transition-colors"
             onClick={() => {
               // play click sound before toggling

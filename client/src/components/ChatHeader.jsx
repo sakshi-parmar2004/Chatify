@@ -27,7 +27,7 @@ function ChatHeader() {
       <div className="flex items-center space-x-3">
         <div className={`avatar ${isOnline ? "online" : "offline"}`}>
           <div className="w-12 rounded-full">
-            <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.name} />
+            <img src={selectedUser.profilePic || "/avatar.png"} alt="" />
           </div>
         </div>
 
@@ -37,7 +37,7 @@ function ChatHeader() {
         </div>
       </div>
 
-      <button onClick={() => setSelectedUser(null)}>
+      <button type="button" aria-label="Close conversation" onClick={() => setSelectedUser(null)}>
         <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
       </button>
     </div>

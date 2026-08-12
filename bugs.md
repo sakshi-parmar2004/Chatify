@@ -1,6 +1,10 @@
 # Known Bugs
 
-Defects found in a full read of the codebase. Each entry is something that is **broken or unsafe today** — not a preference. Enhancements and hardening work live in [improvements.md](improvements.md).
+> **Status: all 23 fixed.** Every defect below has been resolved. Entries are kept as
+> the review record — each states the problem as it was found, so a fix can be checked
+> against the reasoning that motivated it. Verification notes are at the end.
+
+Defects found in a full read of the codebase. Each entry is something that was **broken or unsafe** — not a preference. Enhancements and hardening work live in [improvements.md](improvements.md).
 
 Severity key:
 
@@ -23,7 +27,7 @@ Severity key:
 
 # Backend
 
-## BE-01 🔴 Real-time message delivery is disabled
+## BE-01 🔴 Real-time message delivery is disabled — ✅ Fixed
 
 **File:** [server/src/controller/message.controller.js:71-74](server/src/controller/message.controller.js#L71-L74)
 
@@ -44,7 +48,7 @@ The client subscribes to `newMessage` in [useChatStore.js:87](client/src/store/u
 
 ---
 
-## BE-02 🔴 Password hashes are returned to the client
+## BE-02 🔴 Password hashes are returned to the client — ✅ Fixed
 
 **File:** [server/src/controller/auth.controller.js:38](server/src/controller/auth.controller.js#L38), [auth.controller.js:65](server/src/controller/auth.controller.js#L65)
 
@@ -61,7 +65,7 @@ Both hand back the full Mongoose document including the bcrypt `password` field.
 
 ---
 
-## BE-03 🔴 `/register` has no rate limiting
+## BE-03 🔴 `/register` has no rate limiting — ✅ Fixed
 
 **File:** [server/src/routes/auth.route.js:14](server/src/routes/auth.route.js#L14)
 
@@ -73,7 +77,7 @@ Both hand back the full Mongoose document including the bcrypt `password` field.
 
 ---
 
-## BE-04 🟠 SSRF through the profile picture upload
+## BE-04 🟠 SSRF through the profile picture upload — ✅ Fixed
 
 **File:** [server/src/controller/auth.controller.js:82](server/src/controller/auth.controller.js#L82)
 
@@ -89,7 +93,7 @@ const { secure_url } = await cloudinary.uploader.upload(profilePic, { folder: "p
 
 ---
 
-## BE-05 🟠 Email addresses are not normalized
+## BE-05 🟠 Email addresses are not normalized — ✅ Fixed
 
 **File:** [server/src/models/user.model.js:7](server/src/models/user.model.js#L7), [auth.controller.js:23](server/src/controller/auth.controller.js#L23)
 
@@ -101,7 +105,7 @@ The schema has `unique: true` but no `lowercase` or `trim`, and the controller d
 
 ---
 
-## BE-06 🟠 Arcjet fails open on error
+## BE-06 🟠 Arcjet fails open on error — ✅ Fixed
 
 **File:** [server/src/middleware/arcjet.middleware.js:31-33](server/src/middleware/arcjet.middleware.js#L31-L33)
 
@@ -120,7 +124,7 @@ Any exception — bad API key, network blip, Arcjet outage, quota exhaustion —
 
 ---
 
-## BE-07 🟠 No startup validation of environment variables
+## BE-07 🟠 No startup validation of environment variables — ✅ Fixed
 
 **File:** [server/src/lib/env.js](server/src/lib/env.js)
 
@@ -132,7 +136,7 @@ Every variable is read with `process.env.X` and exported as-is. Nothing checks t
 
 ---
 
-## BE-08 🟡 Messages are returned in unspecified order
+## BE-08 🟡 Messages are returned in unspecified order — ✅ Fixed
 
 **File:** [server/src/controller/message.controller.js:22-27](server/src/controller/message.controller.js#L22-L27)
 
@@ -144,7 +148,7 @@ Every variable is read with `process.env.X` and exported as-is. Nothing checks t
 
 ---
 
-## BE-09 🟡 Route params are not validated as ObjectIds
+## BE-09 🟡 Route params are not validated as ObjectIds — ✅ Fixed
 
 **File:** [server/src/controller/message.controller.js:20](server/src/controller/message.controller.js#L20), [message.controller.js:38](server/src/controller/message.controller.js#L38)
 
@@ -156,7 +160,7 @@ Every variable is read with `process.env.X` and exported as-is. Nothing checks t
 
 ---
 
-## BE-10 🟡 One socket per user breaks multi-tab presence
+## BE-10 🟡 One socket per user breaks multi-tab presence — ✅ Fixed
 
 **File:** [server/src/lib/socket.js:26-42](server/src/lib/socket.js#L26-L42)
 
@@ -173,7 +177,7 @@ A second connection from the same user overwrites the first. When either tab dis
 
 ---
 
-## BE-11 🟡 Duplicate-email race returns 500 instead of 400
+## BE-11 🟡 Duplicate-email race returns 500 instead of 400 — ✅ Fixed
 
 **File:** [server/src/controller/auth.controller.js:23-27](server/src/controller/auth.controller.js#L23-L27)
 
@@ -185,7 +189,7 @@ A second connection from the same user overwrites the first. When either tab dis
 
 ---
 
-## BE-12 🟡 `sameSite: "strict"` will break a split-domain deployment
+## BE-12 🟡 `sameSite: "strict"` will break a split-domain deployment — ✅ Fixed
 
 **File:** [server/src/lib/generateToken.js:9](server/src/lib/generateToken.js#L9)
 
@@ -197,7 +201,7 @@ The auth cookie is `sameSite: "strict"`, while CORS is configured for a separate
 
 ---
 
-## BE-13 🔵 Dead code and inconsistencies
+## BE-13 🔵 Dead code and inconsistencies — ✅ Fixed
 
 **File:** [server/src/controller/auth.controller.js](server/src/controller/auth.controller.js)
 
@@ -209,7 +213,7 @@ The auth cookie is `sameSite: "strict"`, while CORS is configured for a separate
 
 # Frontend
 
-## FE-01 🔴 `login` throws a `ReferenceError` on every successful login
+## FE-01 🔴 `login` throws a `ReferenceError` on every successful login — ✅ Fixed
 
 **File:** [client/src/store/useAuthStore.js:53](client/src/store/useAuthStore.js#L53)
 
@@ -226,7 +230,7 @@ console.log("authUser", authUser)   // ← not defined in this scope
 
 ---
 
-## FE-02 🔴 `PageLoader` is never rendered — logged-in users get bounced to `/login`
+## FE-02 🔴 `PageLoader` is never rendered — logged-in users get bounced to `/login` — ✅ Fixed
 
 **File:** [client/src/App.jsx:21-24](client/src/App.jsx#L21-L24)
 
@@ -243,7 +247,7 @@ if(isCheckingAuth)
 
 ---
 
-## FE-03 🟠 Cancelling the file picker crashes the message composer
+## FE-03 🟠 Cancelling the file picker crashes the message composer — ✅ Fixed
 
 **File:** [client/src/components/MessageInput.jsx:31-32](client/src/components/MessageInput.jsx#L31-L32)
 
@@ -258,7 +262,7 @@ if (!file.type.startsWith("image/")) {   // TypeError when files is empty
 
 ---
 
-## FE-04 🟠 Socket listeners crash when the socket is null
+## FE-04 🟠 Socket listeners crash when the socket is null — ✅ Fixed
 
 **File:** [client/src/store/useChatStore.js:87](client/src/store/useChatStore.js#L87), [useChatStore.js:107](client/src/store/useChatStore.js#L107)
 
@@ -273,7 +277,7 @@ socket.on("newMessage", ...)   // socket may be null
 
 ---
 
-## FE-05 🟡 Optimistic send drops concurrently received messages
+## FE-05 🟡 Optimistic send drops concurrently received messages — ✅ Fixed
 
 **File:** [client/src/store/useChatStore.js:73-79](client/src/store/useChatStore.js#L73-L79)
 
@@ -295,7 +299,7 @@ try {
 
 ---
 
-## FE-06 🟡 Sound toggle has no effect until you switch conversations
+## FE-06 🟡 Sound toggle has no effect until you switch conversations — ✅ Fixed
 
 **File:** [client/src/store/useChatStore.js:83](client/src/store/useChatStore.js#L83)
 
@@ -312,7 +316,7 @@ socket.on("newMessage", (newMessage) => {
 
 ---
 
-## FE-07 🟡 Socket and listener leak on logout
+## FE-07 🟡 Socket and listener leak on logout — ✅ Fixed
 
 **File:** [client/src/store/useAuthStore.js:111-113](client/src/store/useAuthStore.js#L111-L113)
 
@@ -330,7 +334,7 @@ The socket is disconnected but never cleared from the store, and the `getOnlineU
 
 ---
 
-## FE-08 🟡 Unguarded `error.response.data.message` in five handlers
+## FE-08 🟡 Unguarded `error.response.data.message` in five handlers — ✅ Fixed
 
 **Files:** [useAuthStore.js:38](client/src/store/useAuthStore.js#L38), [useAuthStore.js:61](client/src/store/useAuthStore.js#L61), [useAuthStore.js:83](client/src/store/useAuthStore.js#L83), [useChatStore.js:34](client/src/store/useChatStore.js#L34), [useChatStore.js:46](client/src/store/useChatStore.js#L46)
 
@@ -346,7 +350,7 @@ toast.error(error.response.data.message);
 
 ---
 
-## FE-09 🟡 Empty-conversation placeholder shows "undefined"
+## FE-09 🟡 Empty-conversation placeholder shows "undefined" — ✅ Fixed
 
 **File:** [client/src/components/ChatContainer.jsx:72](client/src/components/ChatContainer.jsx#L72)
 
@@ -362,7 +366,7 @@ The User model field is `name` ([user.model.js:6](server/src/models/user.model.j
 
 ---
 
-## FE-10 🔵 Tailwind directives are duplicated
+## FE-10 🔵 Tailwind directives are duplicated — ✅ Fixed
 
 **File:** [client/src/index.css:1-6](client/src/index.css#L1-L6)
 
@@ -374,14 +378,21 @@ The User model field is `name` ([user.model.js:6](server/src/models/user.model.j
 
 ---
 
-## Suggested fix order
+## How the fixes were verified
 
-The five 🔴 issues are each a small, self-contained change and together move the app from "core feature broken" to "working":
+| Check | Result |
+|---|---|
+| `npm run build` (client) | Passes — 1961 modules, no errors |
+| `npm run lint` (client) | Clean, no warnings |
+| `node --check` on every server file | All parse |
+| Server boot | Connects to MongoDB, listens, `/api/health` returns 200 |
+| Helmet headers | `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy` present; `x-powered-by` absent |
+| BE-02 password stripping | `JSON.stringify` of a User document omits `password` |
+| BE-04 SSRF | `http://169.254.169.254/`, `https://evil.test/a.png`, `http://localhost:27017`, and `data:text/html` all rejected; valid png/jpeg data URIs accepted; 5MB payload rejected |
+| BE-05 normalization | `"  MiXeD@Example.COM "` stored as `mixed@example.com` |
+| BE-09 ObjectId guards | Malformed ids return 400, not 500, on both message routes |
+| Controller validation paths | 10/10 pass (missing fields, short password, bad email, send-to-self, empty message) |
 
-1. **BE-01** — restore the socket emit (real-time messaging)
-2. **FE-01** — delete the stray `console.log` (unblocks `connectSocket`, and FE-04 with it)
-3. **BE-02** — strip passwords from auth responses
-4. **BE-03** — add `arcjetProtection` to `/register`
-5. **FE-02** — `return <PageLoader />`
+**Not verified end-to-end.** The configured database is a live MongoDB Atlas cluster, and registration also sends a real welcome email through Resend. Creating a test account would have written to real data and sent real mail, so the register → login → send-message round trip was **not** exercised. Everything reachable without a write was tested directly. The remaining risk sits in the write paths: the duplicate-key branch (**BE-11**), the socket emit (**BE-01**), and multi-tab presence (**BE-10**) are code-reviewed but not run.
 
-Then the 🟠 set (BE-04 through BE-07, FE-03, FE-04), which is where the remaining security exposure sits.
+Worth doing before merge: point `MONGO_URI` at a local or throwaway database and walk through signup, login, a two-browser message exchange, and a multi-tab presence check.

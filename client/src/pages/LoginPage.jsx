@@ -32,12 +32,13 @@ function LoginPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* EMAIL INPUT */}
                   <div>
-                    <label className="auth-input-label">Email</label>
+                    <label className="auth-input-label" htmlFor="login-email">Email</label>
                     <div className="relative">
                       <MailIcon className="auth-input-icon" />
 
                       <input
                         type="email"
+                        id="login-email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         className="input"
@@ -48,12 +49,13 @@ function LoginPage() {
 
                   {/* PASSWORD INPUT */}
                   <div>
-                    <label className="auth-input-label">Password</label>
+                    <label className="auth-input-label" htmlFor="login-password">Password</label>
                     <div className="relative">
                       <LockIcon className="auth-input-icon" />
 
                       <input
                         type="password"
+                        id="login-password"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         className="input"
