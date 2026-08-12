@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import ChatPage from './pages/ChatPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import AdminPage from './pages/AdminPage'
 import { useAuthStore } from './store/useAuthStore'
 import { useThemeStore } from './store/useThemeStore'
 import PageLoader from './components/PageLoader'
@@ -60,6 +61,13 @@ const App = () => {
         <Route path="/" element={authUser ? <ChatPage /> : <Navigate to={"/login"} />} />
         <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
         <Route path="/signup" element={!authUser ? <SignupPage /> : <Navigate to={"/"} />} />
+        {/* OBS-04. This guard only hides the page — every admin route is
+            independently gated server-side, because a client-side check stops
+            nothing that matters. */}
+        <Route
+          path="/admin"
+          element={authUser?.role === "admin" ? <AdminPage /> : <Navigate to={"/"} />}
+        />
       </Routes>
 
       {/* Unconfigured, this renders white toasts on a dark UI. */}

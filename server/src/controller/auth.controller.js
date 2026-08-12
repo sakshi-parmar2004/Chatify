@@ -5,6 +5,21 @@ import { generateToken, authCookieOptions } from "../lib/generateToken.js";
 import { sendWelcomeEmail } from "../lib/email.js";
 import cloudinary from "../lib/cloudinary.js";
 import { validateImageDataUri } from "../lib/validateImage.js";
+import { recordEvent } from "../lib/audit.js";
+import { env_variable } from "../lib/env.js";
+
+/**
+ * OBS-04 — the allowlist bootstrap.
+ *
+ * Applied at login rather than at registration so adding an email promotes an
+ * existing account on their next sign-in, without a database edit.
+ */
+const adminEmails = new Set(
+  (env_variable.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 export const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -35,6 +50,7 @@ const hashedPassword = await bcrypt.hash(password, 10);
   const newUser = await User.create({ name, email: normalizedEmail,  password: hashedPassword });
 
   generateToken(newUser, res);
+  recordEvent({ actorId: newUser._id, action: "user.register", req });
   await sendWelcomeEmail(name, normalizedEmail);
 
   res.status(201).json({ message: "User registered successfully", user: newUser });
@@ -70,7 +86,22 @@ export const loginUser = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid Credentials" });
   }
 
+  // promote before the token is issued, so the session carries the role
+  if (adminEmails.has(user.email) && user.role !== "admin") {
+    user.role = "admin";
+    await user.save();
+    recordEvent({
+      actorId: user._id,
+      action: "user.role_granted",
+      targetType: "user",
+      targetId: user._id,
+      metadata: { role: "admin", via: "allowlist" },
+      req,
+    });
+  }
+
   generateToken(user, res);
+  recordEvent({ actorId: user._id, action: "user.login", req });
   res.status(200).json({ message: "Login successful", user });
 })
 
@@ -98,5 +129,6 @@ export const update_profile = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password");
 
+  recordEvent({ actorId: req.user._id, action: "user.profile_updated", req });
   res.status(200).json({ updatedUser, message: "Profile picture updated successfully" });
 });

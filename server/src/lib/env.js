@@ -25,6 +25,9 @@ export const env_variable={
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: process.env.VAPID_SUBJECT,
     LOG_LEVEL: process.env.LOG_LEVEL,
+    // OBS-04. Comma-separated; these accounts are promoted to admin on login.
+    // Optional — with none set, the only path to admin is scripts/grantAdmin.js.
+    ADMIN_EMAILS: process.env.ADMIN_EMAILS,
 }
 
 // Fail fast at boot rather than on the first request that needs a missing key.

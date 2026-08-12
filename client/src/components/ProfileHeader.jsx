@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
-import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon, PaletteIcon } from "lucide-react";
+import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon, PaletteIcon, ShieldIcon } from "lucide-react";
+import { Link } from "react-router";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import NotificationSettings from "./NotificationSettings";
@@ -117,6 +118,16 @@ function ProfileHeader() {
               <VolumeOffIcon className="size-5" />
             )}
           </button>
+
+          {authUser.role === "admin" && (
+            <Link
+              to="/admin"
+              aria-label="Operations"
+              className="text-muted transition-colors hover:text-ink"
+            >
+              <ShieldIcon className="size-5" />
+            </Link>
+          )}
 
           {/* APPEARANCE — theme and transparency */}
           <button

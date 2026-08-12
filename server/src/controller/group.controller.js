@@ -10,6 +10,7 @@ import {
   emitToUser,
 } from "../lib/socket.js";
 import { serializeConversation } from "./conversation.controller.js";
+import { recordEvent } from "../lib/audit.js";
 
 const MAX_PARTICIPANTS = 100;
 
@@ -117,6 +118,17 @@ export const createGroup = asyncHandler(async (req, res) => {
 
     joinConversationRoom(conversation);
     await postSystemMessage(conversation, `${req.user.name} created the group`);
+    // the system message is in-band and user-facing; this is the structured
+    // record the operator view reads — different jobs, both wanted
+    recordEvent({
+      actorId: myId,
+      action: "group.created",
+      targetType: "conversation",
+      targetId: conversation._id,
+      conversationId: conversation._id,
+      metadata: { members: unique.length },
+      req,
+    });
 
     const users = await User.find({ _id: { $in: unique } }).select("-password").lean();
     const userById = new Map(users.map((user) => [String(user._id), user]));
@@ -158,6 +170,14 @@ export const updateGroup = asyncHandler(async (req, res) => {
     await Conversation.updateOne({ _id: conversation._id }, { $set: update });
 
     if (update.name && update.name !== conversation.name) {
+      recordEvent({
+        actorId: req.user._id,
+        action: "group.renamed",
+        targetType: "conversation",
+        targetId: conversation._id,
+        conversationId: conversation._id,
+        req,
+      });
       await postSystemMessage(
         conversation,
         `${req.user.name} renamed the group to "${update.name}"`
@@ -223,6 +243,15 @@ export const addParticipants = asyncHandler(async (req, res) => {
     const updated = await Conversation.findById(conversation._id).lean();
 
     joinConversationRoom(updated);
+    recordEvent({
+      actorId: req.user._id,
+      action: "group.member_added",
+      targetType: "conversation",
+      targetId: conversation._id,
+      conversationId: conversation._id,
+      metadata: { added: toAdd.length },
+      req,
+    });
     await postSystemMessage(
       updated,
       `${req.user.name} added ${names.map((user) => user.name).join(", ")}`
@@ -293,6 +322,15 @@ export const removeParticipant = asyncHandler(async (req, res) => {
 
     // Room membership is the delivery boundary, so this is a security step, not
     // a tidy-up: a removed member still in the room keeps receiving messages.
+    recordEvent({
+      actorId: myId,
+      action: isSelf ? "group.member_left" : "group.member_removed",
+      targetType: "user",
+      targetId: userId,
+      conversationId: conversation._id,
+      req,
+    });
+
     removeFromConversationRoom(conversation._id, userId);
     emitToUser(userId, "removedFromConversation", {
       conversationId: String(conversation._id),
@@ -329,6 +367,15 @@ export const promoteToAdmin = asyncHandler(async (req, res) => {
       { $addToSet: { admins: new mongoose.Types.ObjectId(userId) } }
     );
 
+    recordEvent({
+      actorId: req.user._id,
+      action: "group.admin_granted",
+      targetType: "user",
+      targetId: userId,
+      conversationId: conversation._id,
+      req,
+    });
+
     const promoted = await User.findById(userId).select("name").lean();
     await postSystemMessage(conversation, `${promoted.name} is now an admin`);
     await broadcastConversation(conversation._id);
@@ -355,6 +402,14 @@ export const demoteAdmin = asyncHandler(async (req, res) => {
       { _id: conversation._id },
       { $pull: { admins: new mongoose.Types.ObjectId(userId) } }
     );
+    recordEvent({
+      actorId: req.user._id,
+      action: "group.admin_revoked",
+      targetType: "user",
+      targetId: userId,
+      conversationId: conversation._id,
+      req,
+    });
     await broadcastConversation(conversation._id);
 
     res.status(200).json({ ok: true });

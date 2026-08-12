@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
 import { emitToConversation } from "../lib/socket.js";
+import { recordEvent } from "../lib/audit.js";
 
 /**
  * How long after sending a message may still be edited or deleted for everyone.
@@ -127,6 +128,17 @@ export const deleteMessage = asyncHandler(async (req, res) => {
       { _id: req.conversation._id },
       { $pull: { pinnedMessageIds: message._id } }
     );
+
+    // the fact of a deletion, never what was deleted
+    recordEvent({
+      actorId: req.user._id,
+      action: "message.deleted",
+      targetType: "message",
+      targetId: message._id,
+      conversationId: req.conversation._id,
+      metadata: { byAdmin: isGroupAdmin && !isSender },
+      req,
+    });
 
     emitToConversation(req.conversation, "messageUpdated", message.toObject());
 
