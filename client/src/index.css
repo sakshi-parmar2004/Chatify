@@ -13,8 +13,19 @@
 }
 
 @layer base {
+  /*
+   * Plain CSS rather than `@apply bg-bg text-ink`.
+   *
+   * This is the one rule that must never fail to apply — without it the page is
+   * unstyled black-on-white. Going through `@apply` made it depend on Tailwind
+   * having resolved the custom colours from tailwind.config.js, so a stale or
+   * broken config turned "some utilities are missing" into a hard PostCSS error
+   * on the whole stylesheet. Reading the variables directly cannot fail that
+   * way.
+   */
   body {
-    @apply bg-bg text-ink;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--text));
   }
 
   /* The default scrollbar is an opaque light strip that cuts straight through
