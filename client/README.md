@@ -82,8 +82,11 @@ Actions: `checkAuth`, `signup`, `login`, `logout`, `updateProfile`, `connectSock
 | `selectedUser` | Who you are talking to, or `null` |
 | `activeTab` | `"chats"` or `"contacts"` |
 | `isSoundEnabled` | Persisted to `localStorage` |
+| `unreadCounts` | `{ [partnerId]: number }`. Kept outside `chats` so a sidebar refetch cannot clobber a live increment. |
+| `receipts` | `{ [partnerId]: { deliveredAt, readAt } }` — see [Read receipts](#read-receipts) |
+| `typingUsers` | `{ [partnerId]: true }` for partners currently composing |
 
-Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `subscribeToMessages`, `unsubscribeFromMessages`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
+Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `applyMessageToChats`, `markConversationAsRead`, `emitTyping`, `emitStopTyping`, `subscribeToInbox`, `unsubscribeFromInbox`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
 
 `useChatStore` reaches into `useAuthStore` via `useAuthStore.getState()` for the socket and the current user id — a one-way dependency. Keep it that way: `useAuthStore` must not import `useChatStore`.
 
@@ -98,20 +101,32 @@ On mount, `App.jsx` calls `checkAuth()`, which hits `/auth/get-user` to restore 
 `connectSocket()` runs after a successful `checkAuth`, `login`, or `signup`. The server pushes:
 
 - **`getOnlineUsers`** — an array of connected user ids, handled in `useAuthStore` and read by the avatar indicators
-- **`newMessage`** — appended to `messages` if it came from the selected user, subscribed per-conversation in `ChatContainer`
+- **`newMessage`** — the message document, for any conversation. Also echoed back to the sender's own tabs.
+- **`messagesDelivered`** / **`messagesRead`** — receipt watermarks for messages *you* sent
+- **`conversationRead`** — another of your own tabs read a conversation; clear its badge
+- **`userTyping`** / **`userStoppedTyping`** — the other party is composing
 
-`ChatContainer` subscribes on mount and unsubscribes on cleanup, so the listener is scoped to the open conversation.
+The client emits `typing` / `stopTyping`, throttled to one every two seconds. Indicators
+**expire on a 5s timer** rather than trusting `stopTyping` to arrive — a closed tab or a
+dropped connection never sends one, and a stuck "typing…" is worse than a late one.
 
-> ⚠️ The server's `newMessage` emit is currently commented out, so incoming messages do not arrive live. See **BE-01** in [bugs.md](../bugs.md).
+**There is one inbox listener for the whole session**, subscribed in `ChatPage` and owned by `useChatStore` (`subscribeToInbox` / `unsubscribeFromInbox`). It is deliberately *not* per-conversation: unread badges have to update for chats that are not open, and a per-conversation listener discards exactly those messages. `ChatContainer` no longer subscribes to anything.
+
+A user may have several sockets open at once (multiple tabs), and the server pushes to all of them — so every handler is written to be idempotent, and `newMessage` dedupes on `_id`.
+
+### Read receipts
+
+Receipts are **watermarks, not id lists**. `receipts[partnerId]` holds `{ deliveredAt, readAt }`, and `applyReceipt` re-applies them at every point a message enters state. This is what makes a receipt that overtakes its own message harmless — an id list could only patch messages already in the store, so a receipt arriving while a send is still in flight would strand that bubble on the wrong tick permanently.
+
+Optimistic messages are skipped by `applyReceipt` on purpose: their `createdAt` comes from the browser clock and must never be compared against a server timestamp.
+
+A conversation is marked read when it is **open and the tab is visible** — not on scroll. `ChatContainer` re-checks on `visibilitychange`.
 
 ### API base URL
 
-[src/lib/axios.js](src/lib/axios.js) switches on `import.meta.env.MODE`:
+URLs are relative in every mode. In development the Vite dev server proxies `/api` and `/socket.io` to the API server; in production the API is served from the same origin as the SPA, so no branch is needed.
 
-- **development** → `http://localhost:8000/api`
-- **production** → `/api` (the server serves the built SPA from the same origin)
-
-`useAuthStore` duplicates the same conditional for the socket URL. Adding a Vite dev proxy would remove both — see **FE-I-03** in [improvements.md](../improvements.md).
+The proxy target defaults to `http://localhost:8000` and can be overridden with `VITE_API_TARGET`. See [vite.config.js](vite.config.js).
 
 ## Styling
 
@@ -148,9 +163,10 @@ Audio playback is wrapped in `.catch()` because browsers block it until the user
 
 ## Known issues
 
-Ten frontend defects are documented in [bugs.md](../bugs.md), including two that break normal use:
+The ten frontend defects recorded in [bugs.md](../bugs.md) have been fixed. Remaining frontend work is tracked in [improvements.md](../improvements.md); the notable open items:
 
-- **FE-01** — a stray `console.log` in `login` throws on every successful login, so `connectSocket()` never runs on that path
-- **FE-02** — `PageLoader` is never returned, so logged-in users flash the login screen on load
+- **FE-I-04** — the message list renders every message with no windowing
+- **FE-I-07** — audio objects are constructed at module scope, so rapid playback clips
+- **FE-I-10** — only two lint rules are enabled; `correctness` and `react-hooks` are off
 
-Twelve frontend enhancements are tracked in [improvements.md](../improvements.md). The highest-value ones: adding an error boundary, a Vite dev proxy, and responsive breakpoints for the chat shell.
+Planned features live in [docs/prd/chatify-prd.md](../docs/prd/chatify-prd.md).

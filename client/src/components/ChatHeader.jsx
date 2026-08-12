@@ -1,45 +1,123 @@
-import { XIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeftIcon, XIcon, InfoIcon, ImageIcon } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
-import { useEffect } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import Avatar from "./ui/Avatar";
+import IconButton from "./ui/IconButton";
+import GroupDetailsPanel from "./GroupDetailsPanel";
+import WallpaperPicker from "./WallpaperPicker";
+
+/** "Ana is typing…" for a direct chat, "Ana and 2 others…" for a group. */
+const typingLabel = (conversation, typingIds) => {
+  if (typingIds.length === 0) return null;
+  if (conversation.type !== "group") return "typing…";
+
+  const names = typingIds
+    .map((id) => conversation.participants?.find((p) => p._id === id)?.name)
+    .filter(Boolean);
+
+  if (names.length === 0) return "typing…";
+  if (names.length === 1) return `${names[0]} is typing…`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`;
+  return `${names[0]} and ${names.length - 1} others are typing…`;
+};
 
 function ChatHeader() {
-  const { selectedUser, setSelectedUser } = useChatStore();
+  const { selectedConversation, closeConversation, typingInSelected } = useChatStore();
   const { onlineUsers } = useAuthStore();
-  const isOnline = onlineUsers.includes(selectedUser._id);
+
+  const typingIds = typingInSelected();
+  const [showDetails, setShowDetails] = useState(false);
+  const [showWallpaper, setShowWallpaper] = useState(false);
 
   useEffect(() => {
     const handleEscKey = (event) => {
-      if (event.key === "Escape") setSelectedUser(null);
+      if (event.key === "Escape") closeConversation();
     };
-
     window.addEventListener("keydown", handleEscKey);
-
-    // cleanup function
     return () => window.removeEventListener("keydown", handleEscKey);
-  }, [setSelectedUser]);
+  }, [closeConversation]);
+
+  if (!selectedConversation) return null;
+
+  const isGroup = selectedConversation.type === "group";
+  const partner = selectedConversation.partner;
+  const isOnline = !isGroup && onlineUsers.includes(partner?._id);
+  const typing = typingLabel(selectedConversation, typingIds);
+
+  const title = isGroup
+    ? selectedConversation.name || "Unnamed group"
+    : partner?.name ?? "Unknown";
+
+  let subtitle;
+  if (isGroup) subtitle = `${selectedConversation.participants?.length ?? 0} members`;
+  else subtitle = isOnline ? "Online" : "Offline";
 
   return (
-    <div
-      className="flex justify-between items-center bg-slate-800/50 border-b
-   border-slate-700/50 max-h-[84px] px-6 flex-1"
-    >
-      <div className="flex items-center space-x-3">
-        <div className={`avatar ${isOnline ? "online" : "offline"}`}>
-          <div className="w-12 rounded-full">
-            <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.name} />
-          </div>
-        </div>
+    <div className="glass-plain flex h-[84px] shrink-0 items-center justify-between gap-2 border-b border-line/10 px-4 sm:px-6">
+      <div className="flex min-w-0 items-center space-x-3">
+        {/* on a phone this pane replaces the list, so it needs a way back */}
+        <button
+          type="button"
+          aria-label="Back to conversations"
+          className="icon-btn md:hidden"
+          onClick={closeConversation}
+        >
+          <ArrowLeftIcon className="h-5 w-5" />
+        </button>
 
-        <div>
-          <h3 className="text-slate-200 font-medium">{selectedUser.name}</h3>
-          <p className="text-slate-400 text-sm">{isOnline ? "Online" : "Offline"}</p>
+        <Avatar
+          src={isGroup ? selectedConversation.image : partner?.profilePic}
+          name={title}
+          size="lg"
+          isGroup={isGroup}
+          presence={isGroup ? null : isOnline}
+        />
+
+        <div className="min-w-0">
+          <h3 className="truncate font-medium text-ink">{title}</h3>
+          {/* aria-live so the state change is announced rather than only seen */}
+          <p className="truncate text-sm text-muted" aria-live="polite">
+            {typing ? <span className="text-accent-soft">{typing}</span> : subtitle}
+          </p>
         </div>
       </div>
 
-      <button onClick={() => setSelectedUser(null)}>
-        <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <IconButton
+          label="Chat wallpaper"
+          icon={ImageIcon}
+          onClick={() => setShowWallpaper(true)}
+        />
+        {isGroup && (
+          <IconButton
+            label="Group details"
+            icon={InfoIcon}
+            onClick={() => setShowDetails(true)}
+          />
+        )}
+        <button
+          type="button"
+          aria-label="Close conversation"
+          className="icon-btn hidden md:block"
+          onClick={closeConversation}
+        >
+          <XIcon className="h-5 w-5" />
+        </button>
+      </div>
+
+      {showDetails && (
+        <GroupDetailsPanel
+          conversation={selectedConversation}
+          onClose={() => setShowDetails(false)}
+        />
+      )}
+      {showWallpaper && (
+        <WallpaperPicker
+          conversation={selectedConversation}
+          onClose={() => setShowWallpaper(false)}
+        />
+      )}
     </div>
   );
 }

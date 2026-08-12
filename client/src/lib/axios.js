@@ -1,8 +1,8 @@
 import axios from "axios";
 
-
-console.log(import.meta.env.MODE)
+// Relative in both modes: Vite proxies /api to the API server in development,
+// and in production the API is served from the same origin as the SPA.
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.MODE === "development" ? "http://localhost:8000/api" : "/api",
+  baseURL: "/api",
   withCredentials: true,
 });

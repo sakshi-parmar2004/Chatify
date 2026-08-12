@@ -1,10 +1,48 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="midnight">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <meta name="theme-color" content="#020617" />
+    <meta
+      name="description"
+      content="Chatify — real-time messaging with groups, media, read receipts and presence."
+    />
+    <title>Chatify</title>
+    <script>
+      /*
+       * Applies the stored theme before first paint.
+       *
+       * React cannot do this: by the time a component mounts the browser has
+       * already painted a frame, so the default theme flashes and then swaps —
+       * which reads as a bug on every single load. This has to be inline and
+       * synchronous, ahead of the stylesheet.
+       *
+       * localStorage is the cache; the account is the source of truth and
+       * reconciles once auth resolves. Wrapped because localStorage throws
+       * outright in a blocked-cookies context, and a theme is not worth a
+       * blank page.
+       */
+      (function () {
+        var LIGHT = { daylight: 1, parchment: 1 };
+        var VALID = { midnight: 1, abyss: 1, aurora: 1, ember: 1, daylight: 1, parchment: 1 };
+        try {
+          var stored = localStorage.getItem("chatify-theme");
+          var theme = VALID[stored] ? stored : "midnight";
+          var root = document.documentElement;
+
+          root.dataset.theme = theme;
+          root.style.colorScheme = LIGHT[theme] ? "light" : "dark";
+
+          if (localStorage.getItem("chatify-reduce-transparency") === "true") {
+            root.dataset.transparency = "reduce";
+          }
+        } catch (e) {
+          /* keep the markup default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,3 +1,4 @@
+import { log } from "../lib/logger.js";
 import jwt from "jsonwebtoken";
 import { env_variable } from "../lib/env.js";
 import User from "../models/user.model.js";
@@ -29,7 +30,7 @@ export const protectRoute = async (req, res, next) => {
     req.user = userInfo; // Attach user info to the request object
     next();
   } catch (error) {
-    console.error(`Token verification error: ${error.message}`);
+    log.debug({ err: error }, "auth rejected");
     return res.status(401).json({ message: "Unauthorized: Invalid token" });
   }
 };

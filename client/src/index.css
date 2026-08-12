@@ -1,37 +1,202 @@
+@import "./styles/themes.css";
+
 @tailwind base;
-@tailwind components;
-@tailwind utilities;@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Registered so the conic gradient's angle can be interpolated rather than
+   jumping between discrete values. */
 @property --border-angle {
   inherits: false;
   initial-value: 0deg;
   syntax: "<angle>";
 }
 
-.input {
-  @apply w-full bg-slate-800/50 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent;
+@layer base {
+  /*
+   * Plain CSS rather than `@apply bg-bg text-ink`.
+   *
+   * This is the one rule that must never fail to apply — without it the page is
+   * unstyled black-on-white. Going through `@apply` made it depend on Tailwind
+   * having resolved the custom colours from tailwind.config.js, so a stale or
+   * broken config turned "some utilities are missing" into a hard PostCSS error
+   * on the whole stylesheet. Reading the variables directly cannot fail that
+   * way.
+   */
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--text));
+  }
+
+  /* The default scrollbar is an opaque light strip that cuts straight through
+     every glass surface it touches. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line) / 0.25) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--line) / 0.25);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--line) / 0.4);
+  }
+
+  /* A focus ring that survives on both light and dark themes. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
 }
 
-.auth-input-icon {
-  @apply absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-5;
+@layer components {
+  /*
+   * The glass contract.
+   *
+   * One class, not a handful of utilities per element — otherwise retuning the
+   * effect means editing every component again, which is the situation this
+   * whole change exists to end.
+   */
+  .glass {
+    background-color: rgb(var(--surface) / var(--glass-opacity));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid rgb(var(--line) / var(--glass-line));
+  }
+
+  /* For surfaces that sit *on* glass — modals, popovers, the composer tray.
+     Slightly more opaque so stacked translucency does not turn to mud. */
+  .glass-raised {
+    background-color: rgb(var(--surface-raised) / calc(var(--glass-opacity) + 0.25));
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(var(--glass-saturate));
+    border: 1px solid rgb(var(--line) / calc(var(--glass-line) + 0.06));
+    box-shadow: 0 16px 48px -12px rgb(var(--bg) / 0.7);
+  }
+
+  /* A pane with no border of its own — used where a parent already draws one. */
+  .glass-plain {
+    background-color: rgb(var(--surface) / var(--glass-opacity));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /*
+   * Without backdrop-filter, a translucent panel is not "glass with less blur"
+   * — it is unreadable text over whatever is behind it. Fall back to fully
+   * opaque rather than to a degraded version of the effect.
+   */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass,
+    .glass-plain {
+      background-color: rgb(var(--surface));
+    }
+    .glass-raised {
+      background-color: rgb(var(--surface-raised));
+    }
+  }
+
+  .field {
+    @apply w-full min-w-0 rounded-lg border px-3 py-2 transition-colors;
+    background-color: rgb(var(--surface-raised) / 0.5);
+    border-color: rgb(var(--line) / 0.2);
+    color: rgb(var(--text));
+  }
+  .field::placeholder {
+    color: rgb(var(--text-faint));
+  }
+  .field:focus {
+    border-color: rgb(var(--accent) / 0.6);
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+  }
+
+  /* A leading icon inside a `.field`. The field needs its own left padding to
+     make room — `.field.pl-10` at the call site. */
+  .field-icon {
+    @apply pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2;
+    color: rgb(var(--text-faint));
+  }
+
+  .icon-btn {
+    @apply shrink-0 rounded-lg p-2 transition-colors;
+    color: rgb(var(--text-muted));
+  }
+  .icon-btn:hover:not(:disabled) {
+    color: rgb(var(--text));
+    background-color: rgb(var(--line) / 0.1);
+  }
+  .icon-btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .btn-primary {
+    @apply rounded-lg px-4 py-2 font-medium transition-all;
+    background-image: linear-gradient(
+      135deg,
+      rgb(var(--accent)),
+      rgb(var(--accent-soft))
+    );
+    color: rgb(var(--accent-ink));
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .btn-primary:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  /* Tinted ghost action — list rows, chips, the reload button. */
+  .btn-ghost {
+    @apply rounded-lg px-4 py-2 transition-colors;
+    background-color: rgb(var(--accent) / 0.1);
+    color: rgb(var(--accent-soft));
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: rgb(var(--accent) / 0.2);
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+    background-color: rgb(var(--accent) / 0.16);
+    color: rgb(var(--accent-soft));
+  }
+
+  /* The wallpaper stack (UIX-04). The scrim is what makes an arbitrary
+     user-chosen image safe to put behind text. */
+  .wallpaper-layer {
+    @apply pointer-events-none absolute inset-0 bg-cover bg-center;
+  }
+  .wallpaper-scrim {
+    @apply pointer-events-none absolute inset-0;
+    background-color: rgb(var(--bg) / var(--scrim));
+  }
 }
 
-.auth-input-label {
-  @apply block text-sm font-medium text-slate-300 mb-2;
+@layer utilities {
+  /* Applied to the message bubbles. They sit above the scrim but still over an
+     arbitrary image, so they get an opacity floor the theme cannot lower. */
+  .bubble-floor {
+    background-color: rgb(var(--surface-raised) / max(var(--glass-opacity), 0.82));
+  }
 }
 
-.auth-badge {
-  @apply inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-cyan-500/20 text-cyan-300;
-}
-
-.auth-btn {
-  @apply w-full bg-cyan-500 text-white rounded-lg py-2.5 font-medium
-  hover:bg-cyan-600 focus:ring-2 focus:ring-cyan-500;
-}
-
-.auth-link {
-  @apply px-4 py-2 inline-block bg-cyan-500/10 rounded-lg text-cyan-400
-  hover:text-cyan-500 text-sm transition-colors;
+/* The animated border and the backdrop orbs are decoration. Anyone who has
+   asked the OS to calm things down should not have a 4s loop in their
+   peripheral vision. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-border {
+    animation: none !important;
+  }
+  .animate-pulse,
+  .animate-spin {
+    animation-duration: 2s !important;
+  }
 }

@@ -1,30 +1,72 @@
+import { useState } from "react";
 import { MessageCircleIcon } from "lucide-react";
+import { useChatStore } from "../store/useChatStore";
+
+// label is what the button shows; text is what actually gets sent
+const CONVERSATION_STARTERS = [
+  { label: "👋 Say Hello", text: "Hey! 👋" },
+  { label: "🤝 How are you?", text: "How are you doing?" },
+  { label: "📅 Meet up soon?", text: "Want to meet up soon?" },
+  { label: "☕ Coffee later?", text: "Coffee later?" },
+  { label: "😄 What's up?", text: "What's up?" },
+  { label: "🎉 Long time!", text: "Long time no talk!" },
+  { label: "💬 Free to chat?", text: "Are you free to chat?" },
+  { label: "🌞 How's your day?", text: "How's your day going?" },
+  { label: "🚀 What are you up to?", text: "What are you up to?" },
+  { label: "🙌 Good to connect", text: "Good to connect!" },
+  { label: "🍕 Lunch plans?", text: "Any lunch plans?" },
+  { label: "🎧 Heard anything good?", text: "Heard any good music lately?" },
+];
+
+const SUGGESTION_COUNT = 3;
+
+const pickStarters = () => {
+  // copy first — shuffling the module-level array in place would mutate it for
+  // every future render
+  const pool = [...CONVERSATION_STARTERS];
+  const picked = [];
+
+  while (picked.length < SUGGESTION_COUNT && pool.length > 0) {
+    const [starter] = pool.splice(Math.floor(Math.random() * pool.length), 1);
+    picked.push(starter);
+  }
+
+  return picked;
+};
 
 const NoChatHistoryPlaceholder = ({ name }) => {
+  const { sendMessage } = useChatStore();
+
+  // Picked once per mount so the buttons hold still while you look at them.
+  // ChatContainer keys this component by conversation, so opening a different
+  // chat remounts it and re-rolls the suggestions.
+  const [starters] = useState(pickStarters);
+
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <div className="w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-cyan-400/10 rounded-full flex items-center justify-center mb-5">
-        <MessageCircleIcon className="size-8 text-cyan-400" />
+      <div className="w-16 h-16 bg-accent/10 ring-1 ring-accent/20 rounded-full flex items-center justify-center mb-5">
+        <MessageCircleIcon className="size-8 text-accent-soft" />
       </div>
-      <h3 className="text-lg font-medium text-slate-200 mb-3">
+      <h3 className="text-lg font-medium text-ink mb-3">
         Start your conversation with {name}
       </h3>
       <div className="flex flex-col space-y-3 max-w-md mb-5">
-        <p className="text-slate-400 text-sm">
+        <p className="text-muted text-sm">
           This is the beginning of your conversation. Send a message to start chatting!
         </p>
-        <div className="h-px w-32 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent mx-auto"></div>
+        <div className="h-px w-32 bg-gradient-to-r from-transparent via-accent/30 to-transparent mx-auto"></div>
       </div>
       <div className="flex flex-wrap gap-2 justify-center">
-        <button className="px-4 py-2 text-xs font-medium text-cyan-400 bg-cyan-500/10 rounded-full hover:bg-cyan-500/20 transition-colors">
-          👋 Say Hello
-        </button>
-        <button className="px-4 py-2 text-xs font-medium text-cyan-400 bg-cyan-500/10 rounded-full hover:bg-cyan-500/20 transition-colors">
-          🤝 How are you?
-        </button>
-        <button className="px-4 py-2 text-xs font-medium text-cyan-400 bg-cyan-500/10 rounded-full hover:bg-cyan-500/20 transition-colors">
-          📅 Meet up soon?
-        </button>
+        {starters.map((starter) => (
+          <button
+            key={starter.text}
+            type="button"
+            onClick={() => sendMessage({ text: starter.text })}
+            className="px-4 py-2 text-xs font-medium text-accent-soft bg-accent/10 rounded-full hover:bg-accent/20 transition-colors"
+          >
+            {starter.label}
+          </button>
+        ))}
       </div>
     </div>
   );

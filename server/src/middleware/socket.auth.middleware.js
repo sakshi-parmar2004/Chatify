@@ -1,3 +1,4 @@
+import { log } from "../lib/logger.js";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import { env_variable } from "../lib/env.js";
@@ -11,21 +12,21 @@ export const socketAuthMiddleware = async (socket, next) => {
       ?.split("=")[1];
 
     if (!token) {
-      console.log("Socket connection rejected: No token provided");
+      log.debug("socket rejected: no token");
       return next(new Error("Unauthorized - No Token Provided"));
     }
 
     // verify the token
     const decoded = jwt.verify(token, env_variable.JWT_SECRET);
     if (!decoded) {
-      console.log("Socket connection rejected: Invalid token");
+      log.debug("socket rejected: invalid token");
       return next(new Error("Unauthorized - Invalid Token"));
     }
 
     // find the user fromdb
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
-      console.log("Socket connection rejected: User not found");
+      log.debug("socket rejected: unknown user");
       return next(new Error("User not found"));
     }
 
@@ -33,11 +34,9 @@ export const socketAuthMiddleware = async (socket, next) => {
     socket.user = user;
     socket.userId = user._id.toString();
 
-    console.log(`Socket authenticated for user: ${user.name} (${user._id})`);
-
     next();
   } catch (error) {
-    console.log("Error in socket authentication:", error.message);
+    log.warn({ err: error }, "socket authentication failed");
     next(new Error("Unauthorized - Authentication failed"));
   }
 };

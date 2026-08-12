@@ -1,0 +1,224 @@
+/*
+ * Design tokens (UIX-01).
+ *
+ * Colours are stored as bare RGB channel triplets, not `rgb()` strings, so that
+ * Tailwind's `<alpha-value>` placeholder works against them — `bg-surface/60`
+ * has to resolve to `rgb(15 23 42 / 0.6)` at runtime, which is impossible if
+ * the variable already carries its own alpha.
+ *
+ * Every theme must define the full set. A theme that omits a token inherits the
+ * previous one's value, which produces a subtly wrong palette rather than an
+ * obvious failure.
+ *
+ * Glass tuning is per theme, not global. Glassmorphism on a light background is
+ * a different problem from glass on a dark one: the same opacity and blur that
+ * read as frosted over near-black read as "slightly dirty white" over near-
+ * white. The light themes therefore run higher opacity, lower blur and a
+ * stronger border.
+ */
+
+:root,
+[data-theme="midnight"] {
+  color-scheme: dark;
+
+  --bg: 2 6 23;
+  --surface: 15 23 42;
+  --surface-raised: 30 41 59;
+  --line: 148 163 184;
+
+  --accent: 6 182 212;
+  --accent-soft: 34 211 238;
+  --accent-ink: 8 15 30;
+
+  --text: 226 232 240;
+  --text-muted: 148 163 184;
+  --text-faint: 125 139 161;
+
+  --danger: 244 63 94;
+  --success: 34 197 94;
+
+  --glow-a: 236 72 153;
+  --glow-b: 6 182 212;
+
+  --glass-opacity: 0.55;
+  --glass-blur: 16px;
+  --glass-saturate: 140%;
+  --glass-line: 0.14;
+
+  /* Wallpaper legibility. See .wallpaper-scrim in index.css — this is the floor
+     below which a user-chosen image cannot push text contrast. */
+  --scrim: 0.55;
+}
+
+[data-theme="abyss"] {
+  color-scheme: dark;
+
+  --bg: 9 9 11;
+  --surface: 24 24 27;
+  --surface-raised: 39 39 42;
+  --line: 161 161 170;
+
+  /* violet-500 against near-white ink measures 4.06:1 — under AA. Darkened
+     until it clears; accent-soft stays bright for links, which only needs 3:1. */
+  --accent: 91 33 182;
+  --accent-soft: 167 139 250;
+  --accent-ink: 250 250 250;
+
+  --text: 228 228 231;
+  --text-muted: 161 161 170;
+  --text-faint: 133 133 143;
+
+  --danger: 244 63 94;
+  --success: 34 197 94;
+
+  --glow-a: 139 92 246;
+  --glow-b: 217 70 239;
+
+  --glass-opacity: 0.6;
+  --glass-blur: 18px;
+  --glass-saturate: 130%;
+  --glass-line: 0.12;
+  --scrim: 0.58;
+}
+
+[data-theme="aurora"] {
+  color-scheme: dark;
+
+  --bg: 3 18 22;
+  --surface: 7 38 44;
+  --surface-raised: 13 56 64;
+  --line: 125 211 192;
+
+  --accent: 16 185 129;
+  --accent-soft: 52 211 153;
+  --accent-ink: 3 18 22;
+
+  --text: 209 250 229;
+  --text-muted: 122 186 170;
+  --text-faint: 100 158 145;
+
+  --danger: 251 113 133;
+  --success: 52 211 153;
+
+  --glow-a: 16 185 129;
+  --glow-b: 34 211 238;
+
+  --glass-opacity: 0.55;
+  --glass-blur: 16px;
+  --glass-saturate: 150%;
+  --glass-line: 0.16;
+  --scrim: 0.55;
+}
+
+[data-theme="ember"] {
+  color-scheme: dark;
+
+  --bg: 24 16 12;
+  --surface: 43 29 21;
+  --surface-raised: 64 43 32;
+  --line: 214 168 140;
+
+  --accent: 245 158 11;
+  --accent-soft: 251 191 36;
+  --accent-ink: 24 16 12;
+
+  --text: 254 235 220;
+  --text-muted: 198 165 140;
+  --text-faint: 168 138 116;
+
+  --danger: 248 113 113;
+  --success: 132 204 22;
+
+  --glow-a: 245 158 11;
+  --glow-b: 244 63 94;
+
+  --glass-opacity: 0.58;
+  --glass-blur: 16px;
+  --glass-saturate: 145%;
+  --glass-line: 0.16;
+  --scrim: 0.55;
+}
+
+[data-theme="daylight"] {
+  color-scheme: light;
+
+  --bg: 226 232 240;
+  --surface: 255 255 255;
+  --surface-raised: 248 250 252;
+  --line: 71 85 105;
+
+  --accent: 79 70 229;
+  --accent-soft: 99 102 241;
+  --accent-ink: 255 255 255;
+
+  --text: 15 23 42;
+  --text-muted: 71 85 105;
+  --text-faint: 90 105 130;
+
+  --danger: 190 18 60;
+  --success: 21 128 61;
+
+  --glow-a: 165 180 252;
+  --glow-b: 103 232 249;
+
+  /* Higher opacity and lower blur, or a translucent white panel on a light
+     ground reads as a rendering artefact rather than a surface. */
+  --glass-opacity: 0.74;
+  --glass-blur: 10px;
+  --glass-saturate: 120%;
+  --glass-line: 0.22;
+  --scrim: 0.62;
+}
+
+[data-theme="parchment"] {
+  color-scheme: light;
+
+  --bg: 240 232 218;
+  --surface: 255 252 246;
+  --surface-raised: 247 240 228;
+  --line: 120 98 76;
+
+  --accent: 180 78 40;
+  --accent-soft: 201 100 58;
+  --accent-ink: 255 252 246;
+
+  --text: 43 32 23;
+  --text-muted: 106 86 66;
+  --text-faint: 128 106 84;
+
+  --danger: 180 35 45;
+  --success: 77 124 40;
+
+  --glow-a: 233 196 140;
+  --glow-b: 201 100 58;
+
+  --glass-opacity: 0.76;
+  --glass-blur: 10px;
+  --glass-saturate: 125%;
+  --glass-line: 0.24;
+  --scrim: 0.64;
+}
+
+/*
+ * Accessibility overrides.
+ *
+ * These come last so they beat every theme block regardless of source order.
+ * `prefers-reduced-transparency` is the OS-level request; `[data-transparency
+ * ="reduce"]` is the in-app toggle, because people want this without changing a
+ * system setting and because browser support for the media query is still thin.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-opacity: 1;
+    --glass-blur: 0px;
+    --glass-line: 0.3;
+    --scrim: 0.95;
+  }
+}
+
+[data-transparency="reduce"] {
+  --glass-opacity: 1;
+  --glass-blur: 0px;
+  --glass-line: 0.3;
+  --scrim: 0.95;
+}
