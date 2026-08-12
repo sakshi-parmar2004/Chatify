@@ -11,11 +11,11 @@ function MessageInput() {
 
   const fileInputRef = useRef(null);
 
+  const { sendMessage, isSoundEnabled, emitTyping, emitStopTyping } = useChatStore();
+
   // leaving the conversation mid-sentence should not leave the other side
   // watching an indicator that never resolves
   useEffect(() => emitStopTyping, [emitStopTyping]);
-
-  const { sendMessage, isSoundEnabled, emitTyping, emitStopTyping } = useChatStore();
 
   const handleSendMessage = (e) => {
     e.preventDefault();

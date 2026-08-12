@@ -40,6 +40,7 @@ Chatify/
 │       ├── lib/axios.js         # Axios instance (withCredentials)
 │       ├── pages/               # ChatPage, LoginPage, SignupPage
 │       ├── store/               # Zustand stores: useAuthStore, useChatStore
+│       ├── test/                # Vitest + Testing Library suites
 │       ├── App.jsx              # Routing + auth guards
 │       └── main.jsx             # Entry point
 │
@@ -97,7 +98,7 @@ ARCJET_ENV=development
 
 `.env` is gitignored — never commit real credentials.
 
-> The server does not currently validate these at startup. A missing variable will surface as a runtime error on the first request that needs it, not at boot.
+> The server validates these at startup and exits with the list of missing keys, so a misconfiguration fails at boot rather than on the first request that needs it.
 
 ## Getting started
 
@@ -116,7 +117,7 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-In development the client talks to the API at `http://localhost:8000/api` (hardcoded in `client/src/lib/axios.js`). In production it uses the relative path `/api`, since the server serves the built SPA from the same origin.
+The client uses relative URLs in every mode. In development the Vite dev server proxies `/api` and `/socket.io` to the API (override the target with `VITE_API_TARGET`); in production the server serves the built SPA from the same origin, so there is no dev/prod branch to keep in sync.
 
 ## Scripts
 
@@ -135,6 +136,8 @@ In development the client talks to the API at `http://localhost:8000/api` (hardc
 | `npm run build` | Production build to `client/dist` |
 | `npm run preview` | Preview the production build |
 | `npm run lint` | Run oxlint |
+| `npm test` | Run the Vitest + Testing Library suite |
+| `npm run test:watch` | Same, in watch mode |
 
 **`server/`**
 
@@ -250,7 +253,6 @@ explains the split.
 
 The 23 defects recorded in [bugs.md](bugs.md) have been fixed. What remains, tracked in [improvements.md](improvements.md):
 
-- **The client has no tests.** The server has 69 (`npm test` in `server/`); the React app has no test script at all.
 - **Conversation history is unpaginated.** Opening a chat loads every message in it and renders them all — fine for small conversations, not for long ones.
 - **Request bodies are validated by hand**, so types are not checked as rigorously as a schema validator would.
 - **Presence is a full-roster broadcast.** Every connect and disconnect sends the complete list of online user ids to every client, which is both wasteful and more disclosure than it needs to be. Tracked as `DEC-05` in the PRD.

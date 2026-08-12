@@ -63,6 +63,11 @@ export const useChatStore = create((set, get) => ({
   setSelectedUser: (selectedUser) => {
     set({ selectedUser });
 
+    // The throttle is per-store, not per-conversation, so without this the
+    // first keystroke in a newly opened chat is swallowed by the window the
+    // previous conversation had already spent.
+    lastTypingEmit = 0;
+
     // opening a conversation is the read signal — but only if this tab is
     // actually on screen. A chat opened in a background tab has not been read.
     if (selectedUser && document.visibilityState === "visible") {

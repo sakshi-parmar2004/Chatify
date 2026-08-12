@@ -118,9 +118,9 @@ A working one-to-one chat app. Stack, API reference and setup are in the
 - **Uploads go base64 through the API.** Images are inlined into a JSON body capped at 5 MB
   and forwarded to Cloudinary. This path structurally cannot carry voice notes, video or
   arbitrary files, and it makes upload progress impossible — the browser sees one opaque POST.
-- **The server has a regression net; the client does not.** `X-03` landed for the backend
-  (69 tests, mutation-checked). Client-side behaviour — the inbox listener, the receipt
-  watermarks, optimistic send — is still covered by nothing.
+- **Both halves now have a regression net.** `X-03` is closed: 69 server tests
+  (mutation-checked) and 37 client tests covering component render plus the store's socket
+  handling. That is the gate `PLT-01` was waiting on.
 
 **Shipped since this document was opened — all of Phase 0:** read receipts and unread
 badges ([`MSG-01`](#msg-01--read-receipts--phase-0), [`MSG-02`](#msg-02--unread-badges--phase-0)),
@@ -209,7 +209,7 @@ features land on top of the old shape.
 
 **Impact** Data model, API surface, socket payloads. The largest single change on the roadmap.
 
-**Depends on** `X-03` — ✅ met for the server, which is where the migration lands
+**Depends on** `X-03` — ✅ met
 
 **Status** Phase 1 · ⬜ Open
 

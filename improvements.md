@@ -1,6 +1,6 @@
 # Improvements
 
-> **Status: 20 done, 1 partly done, 8 open.** Each heading carries its state.
+> **Status: 22 done, 1 partly done, 6 open.** Each heading carries its state.
 > The open items are the ones that need a product decision, add a dependency, or
 > are projects rather than edits — they were deliberately not bundled into the
 > bug-fix pass. See [Still open](#still-open) at the end.
@@ -54,13 +54,19 @@ There is no template for the 15 environment variables the server needs. `server/
 
 ---
 
-## X-03 **P1** No automated tests anywhere — ✅ Done (server)
+## X-03 **P1** No automated tests anywhere — ✅ Done
 
 **Files:** [server/vitest.config.js](server/vitest.config.js), [server/src/test/](server/src/test/)
 
-Vitest + Supertest against an in-memory MongoDB, 69 tests over five files: the auth
-flow, the message round trip, receipts and unread counts, the delivered flush, and the
-inbound socket contract. `npm test` in `server/` runs them.
+**Server** — Vitest + Supertest against an in-memory MongoDB, 69 tests over five files:
+the auth flow, the message round trip, receipts and unread counts, the delivered flush,
+and the inbound socket contract.
+
+**Client** — Vitest + Testing Library, 37 tests over two files: render smoke tests for
+every component that reads from a store, and the store's socket handling — unread
+counts, receipt watermarks, and typing throttle and expiry.
+
+`npm test` in either workspace.
 
 Two structural notes:
 
@@ -80,7 +86,12 @@ detectable from outside, because MongoDB does not guarantee `$group` output orde
 it happens to come out sorted anyway. The explicit sort stays; it guards a documented
 non-guarantee.
 
-**Still open:** the client has no test script at all.
+The client render tests exist for a specific reason. A component that references a
+store value before destructuring it throws a temporal-dead-zone error at render, and
+**neither the build nor the linter can see it** — the build never evaluates the module,
+and `no-use-before-define` is not implemented in this oxlint version. That exact bug
+shipped and crashed the chat page into the error boundary. Rendering is the only thing
+that catches it, so every component reading from a store has an entry.
 
 ---
 
@@ -340,13 +351,18 @@ Left-over `console.log` calls ship to production, including `console.log("res", 
 
 ---
 
-## FE-I-10 **P3** Expand the lint configuration — ⬜ Open
+## FE-I-10 **P3** Expand the lint configuration — ✅ Done
 
 **File:** [client/.oxlintrc.json](client/.oxlintrc.json)
 
 Only two rules are enabled. `react-hooks/exhaustive-deps` and `no-undef` are both off — and `no-undef` would have caught **FE-01**, the broken login, before it was ever committed.
 
-**Do:** enable the `correctness` and `react-hooks` rule sets, and wire lint into CI (**X-04**).
+`correctness` is now enabled and the codebase passes it with zero warnings.
+
+Worth recording what this does *not* buy: `no-use-before-define` is not implemented in
+this oxlint version, so the rule set does not catch a component reading a `const` before
+its declaration. That class of bug is caught by the client render tests added in
+**X-03**, not by the linter. Wiring lint into CI is still **X-04**.
 
 ---
 
@@ -378,8 +394,8 @@ capability; this file owns hardening of what already exists.
 
 | ID | Item | Why it was not bundled in | Blocks |
 |---|---|---|---|
-| **X-03** | Automated tests | *Done for the server* — 69 tests, mutation-checked. The client half is untouched. | `PLT-01` is now unblocked |
-| **X-04** | CI pipeline | Now worth doing: `npm test` in `server/` is real. | — |
+
+| **X-04** | CI pipeline | Now worth doing: both workspaces have a real `npm test`. | — |
 | **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. | `PLT-02`, `MSG-04`, `MED-01` |
 | **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. | `MSG-08` |
 | **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. | — |
@@ -387,9 +403,9 @@ capability; this file owns hardening of what already exists.
 | **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. | — |
 | **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. | `MSG-08` |
 | **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. | `MED-04`, `NTF-06` |
-| **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. | — |
 
-Recommended next step: **X-04**. The server suite exists and passes, so wiring it into CI
-is now cheap and stops it rotting. After that, **X-05** — it is a stated dependency of
-three PRD features, and the inbound socket contract currently hand-validates because Zod
-was not available to it.
+
+Recommended next step: **X-04**. Both workspaces now have a real `npm test` plus lint and
+build, so wiring them into CI is cheap and stops them rotting. After that, **X-05** — it is
+a stated dependency of three PRD features, and the inbound socket contract hand-validates
+today because Zod was not available to it.
