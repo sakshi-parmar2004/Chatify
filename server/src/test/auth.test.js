@@ -15,16 +15,24 @@ vi.mock("../lib/cloudinary.js", () => ({
 }));
 
 const { app } = await import("../app.js");
-const { connectTestDb, disconnectTestDb, clearCollections, cookieFrom, registerUser } =
+const { connectTestDb, disconnectTestDb, clearCollections, cookieFrom, registerUser, startTestServer, stopTestServer } =
   await import("./helpers.js");
 
-beforeAll(connectTestDb);
-afterAll(disconnectTestDb);
+let server;
+
+beforeAll(async () => {
+  await connectTestDb();
+  server = await startTestServer(app);
+});
+afterAll(async () => {
+  await stopTestServer();
+  await disconnectTestDb();
+});
 beforeEach(clearCollections);
 
 describe("POST /api/auth/register", () => {
   it("creates a user, sets an httpOnly cookie, and never returns the password", async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/auth/register")
       .send({ name: "Ada", email: "ada@example.com", password: "password123" });
 
@@ -38,11 +46,11 @@ describe("POST /api/auth/register", () => {
   });
 
   it("normalises the email so casing and whitespace cannot create a duplicate", async () => {
-    await request(app)
+    await request(server)
       .post("/api/auth/register")
       .send({ name: "Ada", email: "  Ada@Example.COM ", password: "password123" });
 
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/auth/register")
       .send({ name: "Imposter", email: "ada@example.com", password: "password123" });
 
@@ -55,16 +63,16 @@ describe("POST /api/auth/register", () => {
     ["a short password", { name: "Ada", email: "ada@example.com", password: "12345" }],
     ["a malformed email", { name: "Ada", email: "not-an-email", password: "password123" }],
   ])("rejects %s", async (_label, payload) => {
-    const res = await request(app).post("/api/auth/register").send(payload);
+    const res = await request(server).post("/api/auth/register").send(payload);
     expect(res.status).toBe(400);
   });
 });
 
 describe("POST /api/auth/login", () => {
   it("logs in with correct credentials", async () => {
-    const user = await registerUser(request, app);
+    const user = await registerUser(request, server);
 
-    const res = await request(app)
+    const res = await request(server)
       .post("/api/auth/login")
       .send({ email: user.email, password: user.password });
 
@@ -74,12 +82,12 @@ describe("POST /api/auth/login", () => {
   });
 
   it("gives the same answer for a wrong password and an unknown email", async () => {
-    const user = await registerUser(request, app);
+    const user = await registerUser(request, server);
 
-    const wrongPassword = await request(app)
+    const wrongPassword = await request(server)
       .post("/api/auth/login")
       .send({ email: user.email, password: "wrong-password" });
-    const unknownEmail = await request(app)
+    const unknownEmail = await request(server)
       .post("/api/auth/login")
       .send({ email: "nobody@example.com", password: "password123" });
 
@@ -92,13 +100,13 @@ describe("POST /api/auth/login", () => {
 
 describe("session round trip", () => {
   it("restores the session with the cookie and drops it after logout", async () => {
-    const user = await registerUser(request, app);
+    const user = await registerUser(request, server);
 
-    const authed = await request(app).get("/api/auth/get-user").set("Cookie", user.cookie);
+    const authed = await request(server).get("/api/auth/get-user").set("Cookie", user.cookie);
     expect(authed.status).toBe(200);
     expect(authed.body.user._id).toBe(user.id);
 
-    const logout = await request(app).post("/api/auth/logout").set("Cookie", user.cookie);
+    const logout = await request(server).post("/api/auth/logout").set("Cookie", user.cookie);
     expect(logout.status).toBe(200);
 
     // the cleared cookie must match the options it was set with, or the browser
@@ -108,12 +116,12 @@ describe("session round trip", () => {
   });
 
   it("refuses an unauthenticated request", async () => {
-    const res = await request(app).get("/api/auth/get-user");
+    const res = await request(server).get("/api/auth/get-user");
     expect(res.status).toBe(401);
   });
 
   it("refuses a forged token", async () => {
-    const res = await request(app)
+    const res = await request(server)
       .get("/api/auth/get-user")
       .set("Cookie", ["token=not.a.real.jwt"]);
     expect(res.status).toBe(401);
@@ -122,9 +130,9 @@ describe("session round trip", () => {
 
 describe("PUT /api/auth/update-profile", () => {
   it("rejects a non-image payload before it reaches Cloudinary", async () => {
-    const user = await registerUser(request, app);
+    const user = await registerUser(request, server);
 
-    const res = await request(app)
+    const res = await request(server)
       .put("/api/auth/update-profile")
       .set("Cookie", user.cookie)
       .send({ profilePic: "https://evil.test/internal-metadata" });
@@ -133,10 +141,10 @@ describe("PUT /api/auth/update-profile", () => {
   });
 
   it("stores the uploaded URL", async () => {
-    const user = await registerUser(request, app);
+    const user = await registerUser(request, server);
     const dataUri = `data:image/png;base64,${Buffer.from("fake-png").toString("base64")}`;
 
-    const res = await request(app)
+    const res = await request(server)
       .put("/api/auth/update-profile")
       .set("Cookie", user.cookie)
       .send({ profilePic: dataUri });
@@ -147,7 +155,7 @@ describe("PUT /api/auth/update-profile", () => {
   });
 
   it("requires authentication", async () => {
-    const res = await request(app).put("/api/auth/update-profile").send({ profilePic: "x" });
+    const res = await request(server).put("/api/auth/update-profile").send({ profilePic: "x" });
     expect(res.status).toBe(401);
   });
 });

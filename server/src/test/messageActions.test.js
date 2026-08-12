@@ -11,31 +11,37 @@ vi.mock("../lib/cloudinary.js", () => ({
 }));
 
 const { app } = await import("../app.js");
-const { connectTestDb, disconnectTestDb, clearCollections, registerUser } =
+const { connectTestDb, disconnectTestDb, clearCollections, registerUser, startTestServer, stopTestServer } =
   await import("./helpers.js");
 const Conversation = (await import("../models/conversation.model.js")).default;
 const Message = (await import("../models/message.model.js")).default;
 const { EDIT_WINDOW_MS } = await import("../controller/message.actions.controller.js");
 
+let server;
+
 beforeAll(async () => {
   await connectTestDb();
+  server = await startTestServer(app);
   await Conversation.syncIndexes();
   await Message.syncIndexes(); // the text index MSG-07 needs
 });
-afterAll(disconnectTestDb);
+afterAll(async () => {
+  await stopTestServer();
+  await disconnectTestDb();
+});
 beforeEach(clearCollections);
 
 const setup = async () => {
-  const alice = await registerUser(request, app);
-  const bob = await registerUser(request, app);
-  const { body: conversation } = await request(app)
+  const alice = await registerUser(request, server);
+  const bob = await registerUser(request, server);
+  const { body: conversation } = await request(server)
     .post(`/api/conversations/direct/${bob.id}`)
     .set("Cookie", alice.cookie);
   return { alice, bob, conversationId: conversation._id };
 };
 
 const send = (user, conversationId, body) =>
-  request(app)
+  request(server)
     .post(`/api/conversations/${conversationId}/messages`)
     .set("Cookie", user.cookie)
     .send(body);
@@ -45,7 +51,7 @@ describe("MSG-04 — editing", () => {
     const { alice, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "teh typo" });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", alice.cookie)
       .send({ text: "the typo" });
@@ -59,7 +65,7 @@ describe("MSG-04 — editing", () => {
     const { alice, bob, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "mine" });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", bob.cookie)
       .send({ text: "hijacked" });
@@ -72,7 +78,7 @@ describe("MSG-04 — editing", () => {
     const { alice, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "hi" });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", alice.cookie)
       .send({ text: "   " });
@@ -92,7 +98,7 @@ describe("MSG-04 — editing", () => {
       { $set: { createdAt: new Date(Date.now() - EDIT_WINDOW_MS - 60_000) } }
     );
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", alice.cookie)
       .send({ text: "too late" });
@@ -105,7 +111,7 @@ describe("MSG-04 — editing", () => {
     const { body: parent } = await send(alice, conversationId, { text: "original" });
     await send(bob, conversationId, { text: "agreed", replyTo: parent._id });
 
-    await request(app)
+    await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${parent._id}`)
       .set("Cookie", alice.cookie)
       .send({ text: "corrected" });
@@ -116,10 +122,10 @@ describe("MSG-04 — editing", () => {
 
   it("refuses to edit from outside the conversation", async () => {
     const { alice, conversationId } = await setup();
-    const carol = await registerUser(request, app);
+    const carol = await registerUser(request, server);
     const { body: message } = await send(alice, conversationId, { text: "hi" });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", carol.cookie)
       .send({ text: "nope" });
@@ -133,7 +139,7 @@ describe("MSG-04 — deleting", () => {
     const { alice, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "secret" });
 
-    const res = await request(app)
+    const res = await request(server)
       .delete(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", alice.cookie);
 
@@ -149,7 +155,7 @@ describe("MSG-04 — deleting", () => {
     const { alice, bob, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "mine" });
 
-    const res = await request(app)
+    const res = await request(server)
       .delete(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", bob.cookie);
 
@@ -164,7 +170,7 @@ describe("MSG-04 — deleting", () => {
       replyTo: parent._id,
     });
 
-    await request(app)
+    await request(server)
       .delete(`/api/conversations/${conversationId}/messages/${parent._id}`)
       .set("Cookie", alice.cookie);
 
@@ -178,8 +184,8 @@ describe("MSG-04 — deleting", () => {
     const { body: message } = await send(alice, conversationId, { text: "hi" });
 
     const url = `/api/conversations/${conversationId}/messages/${message._id}`;
-    await request(app).delete(url).set("Cookie", alice.cookie);
-    const second = await request(app).delete(url).set("Cookie", alice.cookie);
+    await request(server).delete(url).set("Cookie", alice.cookie);
+    const second = await request(server).delete(url).set("Cookie", alice.cookie);
 
     expect(second.status).toBe(200);
   });
@@ -189,11 +195,11 @@ describe("MSG-04 — deleting", () => {
     const { body: one } = await send(bob, conversationId, { text: "one" });
     await send(bob, conversationId, { text: "two" });
 
-    await request(app)
+    await request(server)
       .delete(`/api/conversations/${conversationId}/messages/${one._id}`)
       .set("Cookie", bob.cookie);
 
-    const list = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const list = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(list.body[0].unreadCount).toBe(1);
   });
 });
@@ -212,8 +218,8 @@ describe("MSG-05 — reply and quote", () => {
 
   it("refuses a reply to a message in another conversation", async () => {
     const { alice, conversationId } = await setup();
-    const carol = await registerUser(request, app);
-    const { body: other } = await request(app)
+    const carol = await registerUser(request, server);
+    const { body: other } = await request(server)
       .post(`/api/conversations/direct/${carol.id}`)
       .set("Cookie", alice.cookie);
     const { body: elsewhere } = await send(alice, other._id, { text: "private" });
@@ -232,7 +238,7 @@ describe("MSG-05 — reply and quote", () => {
 
 describe("MSG-06 — reactions", () => {
   const react = (user, conversationId, messageId, emoji) =>
-    request(app)
+    request(server)
       .put(`/api/conversations/${conversationId}/messages/${messageId}/reactions`)
       .set("Cookie", user.cookie)
       .send({ emoji });
@@ -288,7 +294,7 @@ describe("MSG-06 — reactions", () => {
 
   it("refuses reactions from outside the conversation", async () => {
     const { alice, conversationId } = await setup();
-    const carol = await registerUser(request, app);
+    const carol = await registerUser(request, server);
     const { body: message } = await send(alice, conversationId, { text: "hi" });
 
     const res = await react(carol, conversationId, message._id, "👍");
@@ -302,7 +308,7 @@ describe("MSG-07 — search", () => {
     await send(alice, conversationId, { text: "the quick brown fox" });
     await send(alice, conversationId, { text: "something unrelated" });
 
-    const res = await request(app)
+    const res = await request(server)
       .get("/api/conversations/search?q=brown")
       .set("Cookie", alice.cookie);
 
@@ -315,8 +321,8 @@ describe("MSG-07 — search", () => {
     const { alice, conversationId } = await setup();
     await send(alice, conversationId, { text: "shared secret" });
 
-    const carol = await registerUser(request, app);
-    const res = await request(app)
+    const carol = await registerUser(request, server);
+    const res = await request(server)
       .get("/api/conversations/search?q=secret")
       .set("Cookie", carol.cookie);
 
@@ -327,14 +333,14 @@ describe("MSG-07 — search", () => {
     const { alice, bob, conversationId } = await setup();
     await send(alice, conversationId, { text: "findme here" });
 
-    const carol = await registerUser(request, app);
-    const { body: other } = await request(app)
+    const carol = await registerUser(request, server);
+    const { body: other } = await request(server)
       .post(`/api/conversations/direct/${carol.id}`)
       .set("Cookie", bob.cookie);
     await send(bob, other._id, { text: "findme elsewhere" });
 
     // alice asking for bob-and-carol's conversation gets nothing, not an error
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/search?q=findme&conversationId=${other._id}`)
       .set("Cookie", alice.cookie);
 
@@ -345,11 +351,11 @@ describe("MSG-07 — search", () => {
     const { alice, conversationId } = await setup();
     const { body: message } = await send(alice, conversationId, { text: "ephemeral content" });
 
-    await request(app)
+    await request(server)
       .delete(`/api/conversations/${conversationId}/messages/${message._id}`)
       .set("Cookie", alice.cookie);
 
-    const res = await request(app)
+    const res = await request(server)
       .get("/api/conversations/search?q=ephemeral")
       .set("Cookie", alice.cookie);
 
@@ -358,13 +364,13 @@ describe("MSG-07 — search", () => {
 
   it("rejects a one-character search", async () => {
     const { alice } = await setup();
-    const res = await request(app).get("/api/conversations/search?q=a").set("Cookie", alice.cookie);
+    const res = await request(server).get("/api/conversations/search?q=a").set("Cookie", alice.cookie);
     expect(res.status).toBe(400);
   });
 
   it("is not swallowed by the /:id route", async () => {
     const { alice } = await setup();
-    const res = await request(app)
+    const res = await request(server)
       .get("/api/conversations/search?q=anything")
       .set("Cookie", alice.cookie);
     // a 400/200 proves it reached the search handler, not loadConversation's 400

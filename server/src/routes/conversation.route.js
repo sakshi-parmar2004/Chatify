@@ -9,6 +9,7 @@ import {
   markConversationRead,
   createMessage,
 } from "../controller/conversation.controller.js";
+import { createUploadSignature } from "../controller/upload.controller.js";
 import {
   editMessage,
   deleteMessage,
@@ -23,6 +24,9 @@ conversationRouter.use(arcjetProtection, protectRoute);
 // Specific paths before anything that takes an :id, always — otherwise "search"
 // and "direct" are read as conversation ids.
 conversationRouter.get("/search", searchMessages);
+// MED-01 — issues a narrow, short-lived Cloudinary signature; the file itself
+// never touches this server
+conversationRouter.post("/uploads/sign", createUploadSignature);
 conversationRouter.post("/direct/:userId", openDirectConversation);
 
 conversationRouter.get("/", listConversations);

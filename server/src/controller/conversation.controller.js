@@ -6,6 +6,7 @@ import User from "../models/user.model.js";
 import { emitToConversation, joinConversationRoom, isOnline } from "../lib/socket.js";
 import { findOrCreateDirectConversation, stateFor } from "../lib/conversations.js";
 import { validateImageDataUri } from "../lib/validateImage.js";
+import { firstUrlIn, resolveLinkPreview } from "../lib/linkPreview.js";
 
 // A conversation list longer than this is a paging problem, not a page.
 const CONVERSATION_LIMIT = 200;
@@ -279,10 +280,14 @@ export const createMessage = async (req, res) => {
   try {
     const { conversation } = req;
     const senderId = req.user._id;
-    const { text, image, replyTo } = req.body;
+    const { text, image, replyTo, attachment } = req.body;
 
-    if (!text && !image) {
-      return res.status(400).json({ message: "Text or image is required." });
+    if (!text && !image && !attachment) {
+      return res.status(400).json({ message: "Text, an image or an attachment is required." });
+    }
+    if (attachment) {
+      const problem = validateAttachment(attachment);
+      if (problem) return res.status(400).json({ message: problem });
     }
     if (image) {
       const validation = validateImageDataUri(image);
@@ -321,6 +326,7 @@ export const createMessage = async (req, res) => {
           : undefined,
       text,
       image: imageUrl,
+      attachment: attachment ?? null,
       replyTo: replyToMessage?._id ?? null,
       replySnapshot: replyToMessage
         ? {
@@ -349,6 +355,10 @@ export const createMessage = async (req, res) => {
     emitToConversation(conversation, "newMessage", newMessage.toObject());
 
     res.status(201).json(newMessage);
+
+    // MSG-09 — after the response, never blocking it. A slow or hostile host
+    // must not hold up someone's message, and a failure here is invisible.
+    void enrichWithLinkPreview(conversation, newMessage);
   } catch (error) {
     console.error("Error in createMessage: ", error.message);
     res.status(500).json({ message: "Internal server error" });
@@ -383,5 +393,52 @@ export const markDeliveredForOnlineParticipants = async (conversation, message) 
       userId: String(participantId),
       lastDeliveredAt: message.createdAt,
     });
+  }
+};
+
+/**
+ * MED-01 — the client uploads straight to Cloudinary, so what arrives here is a
+ * claim about what it uploaded. Bound the shape and the strings; the signature
+ * already bounded the folder and the size.
+ */
+const ATTACHMENT_KINDS = ["image", "video", "audio", "file"];
+
+export const validateAttachment = (attachment) => {
+  if (typeof attachment !== "object" || attachment === null) return "Invalid attachment.";
+  if (!ATTACHMENT_KINDS.includes(attachment.kind)) return "Unsupported attachment type.";
+
+  if (typeof attachment.url !== "string" || typeof attachment.publicId !== "string") {
+    return "Invalid attachment.";
+  }
+  // only our own asset host, so an attachment cannot become an arbitrary link
+  if (!/^https:\/\/res\.cloudinary\.com\//.test(attachment.url)) {
+    return "Attachment must be an uploaded file.";
+  }
+  if (attachment.name && String(attachment.name).length > 255) {
+    return "Attachment name is too long.";
+  }
+  return null;
+};
+
+const enrichWithLinkPreview = async (conversation, message) => {
+  try {
+    const url = firstUrlIn(message.text);
+    if (!url) return;
+
+    const preview = await resolveLinkPreview(url);
+    if (!preview) return;
+
+    const updated = await Message.findByIdAndUpdate(
+      message._id,
+      { $set: { linkPreview: preview } },
+      { new: true }
+    ).lean();
+
+    // the message may have been deleted while we were fetching
+    if (updated && !updated.deletedAt) {
+      emitToConversation(conversation, "messageUpdated", updated);
+    }
+  } catch (error) {
+    console.error("Error resolving link preview:", error.message);
   }
 };

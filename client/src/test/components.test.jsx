@@ -100,7 +100,8 @@ describe("MessageInput", () => {
     render(<MessageInput />);
     await userEvent.type(screen.getByPlaceholderText("Type your message..."), "hello{Enter}");
 
-    expect(sendMessage).toHaveBeenCalledWith({ text: "hello", image: null });
+    // image is gone from the send payload: attachments replaced the base64 path
+    expect(sendMessage).toHaveBeenCalledWith({ text: "hello" });
     expect(emitStopTyping).toHaveBeenCalled();
   });
 

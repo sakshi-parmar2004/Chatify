@@ -88,11 +88,7 @@ describe("MSG-05 — reply", () => {
     render(<MessageInput />);
     await userEvent.type(screen.getByPlaceholderText("Type your message..."), "agreed{Enter}");
 
-    expect(sendMessage).toHaveBeenCalledWith({
-      text: "agreed",
-      image: null,
-      replyTo: "parent",
-    });
+    expect(sendMessage).toHaveBeenCalledWith({ text: "agreed", replyTo: "parent" });
   });
 
   it("renders a quoted snapshot, and marks a deleted parent", () => {

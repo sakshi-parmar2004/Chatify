@@ -32,12 +32,20 @@ vi.mock("../lib/socket.js", async () => {
 });
 
 const { app } = await import("../app.js");
-const { connectTestDb, disconnectTestDb, clearCollections, registerUser } =
+const { connectTestDb, disconnectTestDb, clearCollections, registerUser, startTestServer, stopTestServer } =
   await import("./helpers.js");
 const { MESSAGE_STATUS } = await import("../models/message.model.js");
 
-beforeAll(connectTestDb);
-afterAll(disconnectTestDb);
+let server;
+
+beforeAll(async () => {
+  await connectTestDb();
+  server = await startTestServer(app);
+});
+afterAll(async () => {
+  await stopTestServer();
+  await disconnectTestDb();
+});
 beforeEach(async () => {
   await clearCollections();
   emitted.length = 0;
@@ -46,11 +54,11 @@ beforeEach(async () => {
 });
 
 const send = (from, toId, body) =>
-  request(app).post(`/api/messages/send/${toId}`).set("Cookie", from.cookie).send(body);
+  request(server).post(`/api/messages/send/${toId}`).set("Cookie", from.cookie).send(body);
 
 describe("delivery status at send time", () => {
   it("marks delivered when the recipient has a socket open", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     getReceiverSocketIds.mockImplementation((id) => (id === bob.id ? ["bob-sock"] : []));
 
     const res = await send(alice, bob.id, { text: "hi" });
@@ -60,7 +68,7 @@ describe("delivery status at send time", () => {
   });
 
   it("marks sent when the recipient has none", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     getReceiverSocketIds.mockReturnValue([]);
 
     const res = await send(alice, bob.id, { text: "hi" });
@@ -68,7 +76,7 @@ describe("delivery status at send time", () => {
   });
 
   it("pushes to every one of the recipient's sockets", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     getReceiverSocketIds.mockImplementation((id) =>
       id === bob.id ? ["bob-1", "bob-2", "bob-3"] : []
     );
@@ -81,7 +89,7 @@ describe("delivery status at send time", () => {
   });
 
   it("echoes the message back to the sender's own other tabs", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     getReceiverSocketIds.mockImplementation((id) => {
       if (id === bob.id) return ["bob-1"];
       if (String(id) === alice.id) return ["alice-1", "alice-2"];
@@ -98,7 +106,7 @@ describe("delivery status at send time", () => {
 
 describe("read receipts over the socket", () => {
   it("notifies the sender and the reader's own other tabs", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     await send(bob, alice.id, { text: "hi" });
     emitted.length = 0;
 
@@ -108,7 +116,7 @@ describe("read receipts over the socket", () => {
       return [];
     });
 
-    await request(app).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
 
     // the sender learns their message was read
     const toSender = emitted.find((e) => e.event === "messagesRead");
@@ -123,14 +131,14 @@ describe("read receipts over the socket", () => {
   });
 
   it("emits nothing when the conversation was already read", async () => {
-    const [alice, bob] = [await registerUser(request, app), await registerUser(request, app)];
+    const [alice, bob] = [await registerUser(request, server), await registerUser(request, server)];
     await send(bob, alice.id, { text: "hi" });
-    await request(app).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
 
     emitted.length = 0;
     getReceiverSocketIds.mockImplementation(() => ["some-sock"]);
 
-    await request(app).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/messages/read/${bob.id}`).set("Cookie", alice.cookie);
     expect(emitted).toEqual([]);
   });
 });

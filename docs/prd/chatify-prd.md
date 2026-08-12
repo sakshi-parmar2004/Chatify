@@ -1,6 +1,6 @@
 # Chatify — Product Requirements
 
-> **Status: 13 of 34 shipped, across 6 phases.** Phases 0, 1 and 2 are complete.
+> **Status: 20 of 34 shipped, across 6 phases.** Phases 0-3 are complete.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -116,9 +116,10 @@ A working one-to-one chat app. Stack, API reference and setup are in the
 - **Presence is a full-roster broadcast.** Every connect and disconnect emits the complete
   list of online user ids to every connected client. That is O(users²) in messages and
   discloses the whole roster to everyone. "Last seen" and do-not-disturb cannot be built on it.
-- **Uploads go base64 through the API.** Images are inlined into a JSON body capped at 5 MB
-  and forwarded to Cloudinary. This path structurally cannot carry voice notes, video or
-  arbitrary files, and it makes upload progress impossible — the browser sees one opaque POST.
+- **Uploads go straight to Cloudinary as of `MED-01`.** The server issues a narrow,
+  short-lived signature — folder and size are its decision, never the client's — and the file
+  never transits the API. The old base64-in-JSON path remains only on the legacy
+  `/api/messages` routes and on profile pictures.
 - **Both halves now have a regression net.** `X-03` is closed: 69 server tests
   (mutation-checked) and 37 client tests covering component render plus the store's socket
   handling. That is the gate `PLT-01` was waiting on.
@@ -490,7 +491,7 @@ as media processing, and sharing links is most of what people paste.
 
 **Depends on** `PLT-01`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MSG-10 — Pin a message — Phase 4
 
@@ -637,7 +638,7 @@ piece of work in Phase 3.
 
 **Depends on** `X-05`
 
-**Status** Phase 3 · ⬜ Open — see [`DEC-07`](#dec-07--signed-direct-upload)
+**Status** Phase 3 · ✅ Shipped — see [`DEC-07`](#dec-07--signed-direct-upload)
 
 ### MED-02 — Upload progress and cancel — Phase 3
 
@@ -655,7 +656,7 @@ after it, since the files get much larger.
 
 **Depends on** `MED-01`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MED-03 — Arbitrary file attachments — Phase 3
 
@@ -672,7 +673,7 @@ after it, since the files get much larger.
 
 **Depends on** `MED-01`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MED-04 — Voice notes — Phase 3
 
@@ -691,7 +692,7 @@ after it, since the files get much larger.
 
 **Depends on** `MED-01`, `FE-I-07`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MED-05 — Video — Phase 3
 
@@ -708,7 +709,7 @@ after it, since the files get much larger.
 
 **Depends on** `MED-01`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MED-06 — Drag, drop and paste — Phase 3
 
@@ -726,7 +727,7 @@ things on desktop.
 
 **Depends on** `MED-01`, `MED-03`
 
-**Status** Phase 3 · ⬜ Open
+**Status** Phase 3 · ✅ Shipped
 
 ### MED-07 — Conversation media gallery — Phase 4
 
@@ -1066,7 +1067,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | **0 — Receipts and the inbound channel** ✅ | `MSG-01`, `MSG-02`, `PLT-03`, `MSG-03`, `PLT-02` — all shipped | The inbound socket surface and the global listener that every later phase assumes | `X-03` for the new endpoints |
 | **1 — Conversation migration** ✅ | `PLT-01`, `PLT-04` — shipped; contract step held | Literally everything below | Backfill verified by count; rollback rehearsed |
 | **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
-| **3 — Media** | `MED-01`–`MED-06`, `MSG-09` | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
+| **3 — Media** ✅ | `MED-01`–`MED-06`, `MSG-09` — shipped | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
 | **4 — Groups** | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` | The second persona | `DEC-03` cursor migration complete |
 | **5 — Notifications** | `NTF-01`–`NTF-07`, `PLT-05` | Chatify works without a tab open | `NTF-04` before any push ships |
 
@@ -1142,19 +1143,19 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `MSG-06` | Reactions | 2 | ✅ | `PLT-01` |
 | `MSG-07` | Message search | 2 | ✅ | `PLT-01`, `MSG-08` |
 | `MSG-08` | Conversation history | 2 | ✅ | `BE-I-05`, `FE-I-04` |
-| `MSG-09` | Link previews | 3 | ⬜ | `PLT-01` |
+| `MSG-09` | Link previews | 3 | ✅ | `PLT-01` |
 | `MSG-10` | Pin a message | 4 | ⬜ | `PLT-01`, `GRP-02` |
 | `GRP-01` | Group conversations | 4 | ⬜ | `PLT-01`, `PLT-04`, `DEC-03` |
 | `GRP-02` | Roles and permissions | 4 | ⬜ | `GRP-01` |
 | `GRP-03` | Member management | 4 | ⬜ | `GRP-01`, `GRP-02` |
 | `GRP-04` | Mentions | 4 | ⬜ | `GRP-01`, `NTF-01` |
 | `GRP-05` | Group read state | 4 | ⬜ | `GRP-01`, `DEC-03` |
-| `MED-01` | Signed direct uploads | 3 | ⬜ | `X-05` |
-| `MED-02` | Upload progress and cancel | 3 | ⬜ | `MED-01` |
-| `MED-03` | Arbitrary file attachments | 3 | ⬜ | `MED-01` |
-| `MED-04` | Voice notes | 3 | ⬜ | `MED-01`, `FE-I-07` |
-| `MED-05` | Video | 3 | ⬜ | `MED-01` |
-| `MED-06` | Drag, drop and paste | 3 | ⬜ | `MED-01`, `MED-03` |
+| `MED-01` | Signed direct uploads | 3 | ✅ | `X-05` |
+| `MED-02` | Upload progress and cancel | 3 | ✅ | `MED-01` |
+| `MED-03` | Arbitrary file attachments | 3 | ✅ | `MED-01` |
+| `MED-04` | Voice notes | 3 | ✅ | `MED-01`, `FE-I-07` |
+| `MED-05` | Video | 3 | ✅ | `MED-01` |
+| `MED-06` | Drag, drop and paste | 3 | ✅ | `MED-01`, `MED-03` |
 | `MED-07` | Conversation media gallery | 4 | ⬜ | `MED-03`, `MSG-08` |
 | `NTF-01` | Web push | 5 | ⬜ | `PLT-01`, `NTF-04` |
 | `NTF-02` | Desktop notifications | 5 | ⬜ | `NTF-04`, `NTF-05` |

@@ -11,38 +11,49 @@ vi.mock("../lib/cloudinary.js", () => ({
 }));
 
 const { app } = await import("../app.js");
-const { connectTestDb, disconnectTestDb, clearCollections, registerUser } =
+const { connectTestDb, disconnectTestDb, clearCollections, registerUser, startTestServer, stopTestServer } =
   await import("./helpers.js");
 const Conversation = (await import("../models/conversation.model.js")).default;
 const Message = (await import("../models/message.model.js")).default;
 
+let server;
+
 beforeAll(async () => {
   await connectTestDb();
+  server = await startTestServer(app);
   await Conversation.syncIndexes();
 });
-afterAll(disconnectTestDb);
+afterAll(async () => {
+  await stopTestServer();
+  await disconnectTestDb();
+});
 beforeEach(clearCollections);
 
 const openDirect = (user, otherId) =>
-  request(app).post(`/api/conversations/direct/${otherId}`).set("Cookie", user.cookie);
+  request(server).post(`/api/conversations/direct/${otherId}`).set("Cookie", user.cookie);
 
 const send = (user, conversationId, body) =>
-  request(app)
+  request(server)
     .post(`/api/conversations/${conversationId}/messages`)
     .set("Cookie", user.cookie)
     .send(body);
 
 const twoUsers = async () => {
-  const alice = await registerUser(request, app);
-  const bob = await registerUser(request, app);
-  const { body: conversation } = await openDirect(alice, bob.id);
-  return { alice, bob, conversationId: conversation._id };
+  const alice = await registerUser(request, server);
+  const bob = await registerUser(request, server);
+  const res = await openDirect(alice, bob.id);
+  // assert here rather than let an undefined id turn into a confusing failure
+  // three lines later
+  if (res.status !== 200) {
+    throw new Error(`openDirect failed (${res.status}): ${JSON.stringify(res.body)}`);
+  }
+  return { alice, bob, conversationId: res.body._id };
 };
 
 describe("POST /api/conversations/direct/:userId", () => {
   it("creates a direct conversation and returns the partner", async () => {
-    const alice = await registerUser(request, app);
-    const bob = await registerUser(request, app);
+    const alice = await registerUser(request, server);
+    const bob = await registerUser(request, server);
 
     const res = await openDirect(alice, bob.id);
 
@@ -54,8 +65,8 @@ describe("POST /api/conversations/direct/:userId", () => {
   });
 
   it("is idempotent from either side", async () => {
-    const alice = await registerUser(request, app);
-    const bob = await registerUser(request, app);
+    const alice = await registerUser(request, server);
+    const bob = await registerUser(request, server);
 
     const first = await openDirect(alice, bob.id);
     const second = await openDirect(bob, alice.id);
@@ -65,7 +76,7 @@ describe("POST /api/conversations/direct/:userId", () => {
   });
 
   it("rejects yourself, a stranger id and a malformed id", async () => {
-    const alice = await registerUser(request, app);
+    const alice = await registerUser(request, server);
 
     expect((await openDirect(alice, alice.id)).status).toBe(400);
     expect((await openDirect(alice, "507f1f77bcf86cd799439099")).status).toBe(404);
@@ -75,18 +86,22 @@ describe("POST /api/conversations/direct/:userId", () => {
 
 describe("GET /api/conversations", () => {
   it("lists conversations newest first with unread counts and previews", async () => {
-    const alice = await registerUser(request, app);
-    const bob = await registerUser(request, app);
-    const carol = await registerUser(request, app);
+    const alice = await registerUser(request, server);
+    const bob = await registerUser(request, server);
+    const carol = await registerUser(request, server);
 
-    const { body: withBob } = await openDirect(alice, bob.id);
-    const { body: withCarol } = await openDirect(alice, carol.id);
+    const bobRes = await openDirect(alice, bob.id);
+    const carolRes = await openDirect(alice, carol.id);
+    expect(bobRes.status).toBe(200);
+    expect(carolRes.status).toBe(200);
+    const withBob = bobRes.body;
+    const withCarol = carolRes.body;
 
     await send(bob, withBob._id, { text: "from bob 1" });
     await send(bob, withBob._id, { text: "from bob 2" });
     await send(carol, withCarol._id, { text: "from carol" });
 
-    const res = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const res = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.map((c) => c.partner.name)).toEqual([carol.name, bob.name]);
@@ -99,24 +114,24 @@ describe("GET /api/conversations", () => {
     const { alice, conversationId } = await twoUsers();
     await send(alice, conversationId, { text: "mine" });
 
-    const res = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const res = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(res.body[0].unreadCount).toBe(0);
   });
 
   it("shows nobody else's conversations", async () => {
-    const alice = await registerUser(request, app);
-    const bob = await registerUser(request, app);
-    const carol = await registerUser(request, app);
+    const alice = await registerUser(request, server);
+    const bob = await registerUser(request, server);
+    const carol = await registerUser(request, server);
 
     const { body: bobCarol } = await openDirect(bob, carol.id);
     await send(bob, bobCarol._id, { text: "private" });
 
-    const res = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const res = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(res.body).toEqual([]);
   });
 
   it("requires authentication", async () => {
-    expect((await request(app).get("/api/conversations")).status).toBe(401);
+    expect((await request(server).get("/api/conversations")).status).toBe(401);
   });
 });
 
@@ -128,7 +143,7 @@ describe("GET /api/conversations/:id/messages", () => {
       await send(i % 2 ? bob : alice, conversationId, { text: `m${i}` });
     }
 
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/${conversationId}/messages?limit=5`)
       .set("Cookie", alice.cookie);
 
@@ -149,7 +164,7 @@ describe("GET /api/conversations/:id/messages", () => {
       const url = `/api/conversations/${conversationId}/messages?limit=5${
         cursor ? `&before=${encodeURIComponent(cursor)}` : ""
       }`;
-      const res = await request(app).get(url).set("Cookie", alice.cookie);
+      const res = await request(server).get(url).set("Cookie", alice.cookie);
       collected.unshift(...res.body.messages.map((m) => m.text));
       cursor = res.body.nextCursor;
       if (!res.body.hasMore) break;
@@ -163,7 +178,7 @@ describe("GET /api/conversations/:id/messages", () => {
     const { alice, conversationId } = await twoUsers();
     await send(alice, conversationId, { text: "only" });
 
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/${conversationId}/messages`)
       .set("Cookie", alice.cookie);
 
@@ -172,7 +187,7 @@ describe("GET /api/conversations/:id/messages", () => {
 
   it("caps an absurd page size", async () => {
     const { alice, conversationId } = await twoUsers();
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/${conversationId}/messages?limit=99999`)
       .set("Cookie", alice.cookie);
     expect(res.status).toBe(200);
@@ -180,7 +195,7 @@ describe("GET /api/conversations/:id/messages", () => {
 
   it("rejects a malformed cursor", async () => {
     const { alice, conversationId } = await twoUsers();
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/${conversationId}/messages?before=not-a-date`)
       .set("Cookie", alice.cookie);
     expect(res.status).toBe(400);
@@ -188,9 +203,9 @@ describe("GET /api/conversations/:id/messages", () => {
 
   it("hides a conversation the caller is not in behind a 404", async () => {
     const { conversationId } = await twoUsers();
-    const carol = await registerUser(request, app);
+    const carol = await registerUser(request, server);
 
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/conversations/${conversationId}/messages`)
       .set("Cookie", carol.cookie);
 
@@ -231,7 +246,7 @@ describe("POST /api/conversations/:id/messages", () => {
 
   it("refuses a non-participant", async () => {
     const { conversationId } = await twoUsers();
-    const carol = await registerUser(request, app);
+    const carol = await registerUser(request, server);
 
     expect((await send(carol, conversationId, { text: "hi" })).status).toBe(404);
   });
@@ -243,14 +258,14 @@ describe("PATCH /api/conversations/:id/read", () => {
     await send(bob, conversationId, { text: "one" });
     await send(bob, conversationId, { text: "two" });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/read`)
       .set("Cookie", alice.cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.changed).toBe(true);
 
-    const list = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const list = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(list.body[0].unreadCount).toBe(0);
   });
 
@@ -258,11 +273,11 @@ describe("PATCH /api/conversations/:id/read", () => {
     const { alice, bob, conversationId } = await twoUsers();
     for (let i = 0; i < 20; i += 1) await send(bob, conversationId, { text: `m${i}` });
 
-    await request(app)
+    await request(server)
       .patch(`/api/conversations/${conversationId}/read`)
       .set("Cookie", alice.cookie);
 
-    const list = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const list = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(list.body[0].unreadCount).toBe(0);
   });
 
@@ -270,8 +285,8 @@ describe("PATCH /api/conversations/:id/read", () => {
     const { alice, bob, conversationId } = await twoUsers();
     await send(bob, conversationId, { text: "one" });
 
-    await request(app).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
-    const second = await request(app)
+    await request(server).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
+    const second = await request(server)
       .patch(`/api/conversations/${conversationId}/read`)
       .set("Cookie", alice.cookie);
 
@@ -281,14 +296,14 @@ describe("PATCH /api/conversations/:id/read", () => {
   it("does not let the cursor move backwards when older history is read", async () => {
     const { alice, bob, conversationId } = await twoUsers();
     await send(bob, conversationId, { text: "one" });
-    await request(app).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
 
     const before = await Conversation.findById(conversationId).lean();
     const cursorBefore = before.participantState.find(
       (s) => String(s.userId) === alice.id
     ).lastReadAt;
 
-    await request(app).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
 
     const after = await Conversation.findById(conversationId).lean();
     const cursorAfter = after.participantState.find(
@@ -300,9 +315,9 @@ describe("PATCH /api/conversations/:id/read", () => {
 
   it("refuses a non-participant", async () => {
     const { conversationId } = await twoUsers();
-    const carol = await registerUser(request, app);
+    const carol = await registerUser(request, server);
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/conversations/${conversationId}/read`)
       .set("Cookie", carol.cookie);
 
@@ -315,11 +330,11 @@ describe("unread counting with cursors", () => {
     const { alice, bob, conversationId } = await twoUsers();
 
     await send(bob, conversationId, { text: "before" });
-    await request(app).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
+    await request(server).patch(`/api/conversations/${conversationId}/read`).set("Cookie", alice.cookie);
     await send(bob, conversationId, { text: "after 1" });
     await send(bob, conversationId, { text: "after 2" });
 
-    const list = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const list = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(list.body[0].unreadCount).toBe(2);
   });
 
@@ -330,7 +345,7 @@ describe("unread counting with cursors", () => {
 
     await Message.updateOne({ text: "one" }, { $set: { deletedAt: new Date() } });
 
-    const list = await request(app).get("/api/conversations").set("Cookie", alice.cookie);
+    const list = await request(server).get("/api/conversations").set("Cookie", alice.cookie);
     expect(list.body[0].unreadCount).toBe(1);
   });
 });

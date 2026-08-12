@@ -1,6 +1,34 @@
+import http from "node:http";
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import { inject } from "vitest";
+
+/**
+ * One listening server per test file, rather than the ephemeral one supertest
+ * creates per request.
+ *
+ * Creating and tearing down a server for every single request across ~140 tests
+ * produced an intermittent "Parse Error: Expected HTTP/" — a different test each
+ * run, which is the signature of socket churn rather than a product bug. Hand
+ * supertest a long-lived server and it goes away.
+ */
+let sharedServer = null;
+
+export const startTestServer = (app) =>
+  new Promise((resolve) => {
+    sharedServer = http.createServer(app).listen(0, () => resolve(sharedServer));
+  });
+
+export const stopTestServer = () =>
+  new Promise((resolve) => {
+    if (!sharedServer) return resolve();
+    sharedServer.close(() => {
+      sharedServer = null;
+      resolve();
+    });
+  });
+
+export const testServer = () => sharedServer;
 
 /**
  * Connect to the in-memory MongoDB started by globalSetup.
