@@ -12,20 +12,32 @@ function ChatPage() {
   const { activeTab, selectedUser } = useChatStore();
 
   return (
-    <div className="relative w-full max-w-6xl h-[800px]">
+    // Full-bleed and full-height on phones; a fixed card once there is room for
+    // both panes side by side. dvh rather than vh so mobile browser chrome does
+    // not push the composer off-screen.
+    <div className="relative w-full max-w-6xl h-[100dvh] sm:h-[calc(100dvh-2rem)] md:h-[800px] md:max-h-[calc(100dvh-2rem)]">
       <BorderAnimatedContainer>
-        {/* LEFT SIDE */}
-        <div className="w-80 bg-slate-800/50 backdrop-blur-sm flex flex-col">
+        {/* LEFT SIDE — the only pane on a phone until a conversation is opened */}
+        <div
+          className={`w-full md:w-80 md:shrink-0 bg-slate-800/50 backdrop-blur-sm flex-col ${
+            selectedUser ? "hidden md:flex" : "flex"
+          }`}
+        >
           <ProfileHeader />
           <ActiveTabSwitch />
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
             {activeTab === "chats" ? <ChatsList /> : <ContactList />}
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
-        <div className="flex-1 flex flex-col bg-slate-900/50 backdrop-blur-sm">
+        {/* RIGHT SIDE — takes over the screen on a phone once a chat is open.
+            min-w-0 lets long names truncate instead of stretching the pane. */}
+        <div
+          className={`flex-1 min-w-0 flex-col bg-slate-900/50 backdrop-blur-sm ${
+            selectedUser ? "flex" : "hidden md:flex"
+          }`}
+        >
           {selectedUser ? <ChatContainer /> : <NoConversationPlaceholder />}
         </div>
       </BorderAnimatedContainer>

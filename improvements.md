@@ -1,6 +1,6 @@
 # Improvements
 
-> **Status: 18 done, 1 partly done, 10 open.** Each heading carries its state.
+> **Status: 19 done, 1 partly done, 9 open.** Each heading carries its state.
 > The open items are the ones that need a product decision, add a dependency, or
 > are projects rather than edits — they were deliberately not bundled into the
 > bug-fix pass. See [Still open](#still-open) at the end.
@@ -276,7 +276,7 @@ The dev API base URL is hardcoded to `http://localhost:8000` in two separate pla
 
 ---
 
-## FE-I-06 **P2** The layout is not responsive — ⬜ Open
+## FE-I-06 **P2** The layout is not responsive — ✅ Done
 
 **Files:** [ChatPage.jsx:14-16](client/src/pages/ChatPage.jsx#L14-L16)
 
@@ -362,7 +362,6 @@ that should be decided rather than assumed.
 | **BE-I-07** | Structured logging (pino) | Adds a dependency and touches every log line. The noisiest offenders were cleaned up meanwhile: per-connection socket logs that printed user names and ids are gone, and `console.log` on error paths is now `console.error`. |
 | **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. |
 | **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. |
-| **FE-I-06** | Responsive chat layout | A design decision — how the sidebar and conversation should behave on small screens is a product call, not a bug fix. |
 | **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. |
 | **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. |
 
