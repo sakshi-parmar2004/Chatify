@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import http from "http";
 import { env_variable } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
+import { markPendingAsDelivered } from "./receipts.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -33,6 +34,22 @@ io.on("connection", (socket) => {
 
   // io.emit() is used to send events to all connected clients
   io.emit("getOnlineUsers", [...userSocketMap.keys()]);
+
+  // Anything written while this user had no socket open is only reaching a
+  // client now. Fire-and-forget: a failure here costs a tick, not a message, so
+  // it must not take the connection down with it.
+  markPendingAsDelivered(userId)
+    .then((senderIds) => {
+      if (senderIds.length === 0) return;
+
+      const deliveredAt = new Date().toISOString();
+      for (const senderId of senderIds) {
+        for (const socketId of getReceiverSocketIds(senderId)) {
+          io.to(socketId).emit("messagesDelivered", { partnerId: userId, deliveredAt });
+        }
+      }
+    })
+    .catch((error) => console.error("Error flushing delivered receipts:", error.message));
 
   // with socket.on we listen for events from clients
   socket.on("disconnect", () => {
