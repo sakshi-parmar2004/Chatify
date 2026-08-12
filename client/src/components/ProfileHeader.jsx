@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
-import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon } from "lucide-react";
+import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon, PaletteIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import NotificationSettings from "./NotificationSettings";
+import AppearanceSettings from "./AppearanceSettings";
 
 const mouseClickSound = new Audio("/sounds/mouse-click.mp3");
 
@@ -12,6 +13,7 @@ function ProfileHeader() {
   const { isSoundEnabled, toggleSound } = useChatStore();
   const [selectedImg, setSelectedImg] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAppearance, setShowAppearance] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -41,11 +43,11 @@ function ProfileHeader() {
   };
 
   return (
-    <div className="p-6 border-b border-slate-700/50">
+    <div className="border-b border-line/10 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* AVATAR */}
-          <div className="avatar online">
+          <div className="relative">
             <button
               type="button"
               aria-label="Change profile picture"
@@ -57,8 +59,8 @@ function ProfileHeader() {
                 alt=""
                 className="size-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <span className="text-white text-xs">Change</span>
+              <div className="absolute inset-0 bg-bg/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <span className="text-ink text-xs">Change</span>
               </div>
             </button>
 
@@ -69,15 +71,18 @@ function ProfileHeader() {
               onChange={handleImageUpload}
               className="hidden"
             />
+            {/* own presence is always "online" by definition — it is a label,
+                not a lookup */}
+            <span className="absolute bottom-0 right-0 block size-3.5 rounded-full bg-success ring-2 ring-surface" />
           </div>
 
           {/* USERNAME & ONLINE TEXT */}
           <div>
-            <h3 className="text-slate-200 font-medium text-base max-w-[180px] truncate">
+            <h3 className="text-ink font-medium text-base max-w-[180px] truncate">
               {authUser.name}
             </h3>
 
-            <p className="text-slate-400 text-xs">Online</p>
+            <p className="text-muted text-xs">Online</p>
           </div>
         </div>
 
@@ -87,7 +92,7 @@ function ProfileHeader() {
           <button
             type="button"
             aria-label="Log out"
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="text-muted hover:text-ink transition-colors"
             onClick={logout}
           >
             <LogOutIcon className="size-5" />
@@ -98,11 +103,11 @@ function ProfileHeader() {
             type="button"
             aria-label={isSoundEnabled ? "Mute sounds" : "Unmute sounds"}
             aria-pressed={isSoundEnabled}
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="text-muted hover:text-ink transition-colors"
             onClick={() => {
               // play click sound before toggling
               mouseClickSound.currentTime = 0; // reset to start
-              mouseClickSound.play().catch((error) => console.log("Audio play failed:", error));
+              mouseClickSound.play().catch(() => {});
               toggleSound();
             }}
           >
@@ -113,11 +118,21 @@ function ProfileHeader() {
             )}
           </button>
 
+          {/* APPEARANCE — theme and transparency */}
+          <button
+            type="button"
+            aria-label="Appearance settings"
+            className="text-muted hover:text-ink transition-colors"
+            onClick={() => setShowAppearance(true)}
+          >
+            <PaletteIcon className="size-5" />
+          </button>
+
           {/* NOTIFICATION SETTINGS — push and quiet hours */}
           <button
             type="button"
             aria-label="Notification settings"
-            className="text-slate-400 hover:text-slate-200 transition-colors"
+            className="text-muted hover:text-ink transition-colors"
             onClick={() => setShowNotifications(true)}
           >
             <BellIcon className="size-5" />
@@ -128,6 +143,7 @@ function ProfileHeader() {
       {showNotifications && (
         <NotificationSettings onClose={() => setShowNotifications(false)} />
       )}
+      {showAppearance && <AppearanceSettings onClose={() => setShowAppearance(false)} />}
     </div>
   );
 }

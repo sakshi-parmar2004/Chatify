@@ -413,6 +413,32 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  /**
+   * UIX-04 — wallpaper for one conversation, for this viewer only.
+   *
+   * Applied locally first: a wallpaper that waits for a round trip feels like
+   * the click missed. The server response is authoritative and the socket
+   * carries it to this user's other tabs.
+   */
+  setConversationWallpaper: async (conversationId, wallpaper) => {
+    set((state) => ({
+      conversations: state.conversations.map((conversation) =>
+        conversation._id === conversationId ? { ...conversation, wallpaper } : conversation
+      ),
+      selectedConversation:
+        state.selectedConversation?._id === conversationId
+          ? { ...state.selectedConversation, wallpaper }
+          : state.selectedConversation,
+    }));
+
+    try {
+      await axiosInstance.put(`/conversations/${conversationId}/wallpaper`, { wallpaper });
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not set the wallpaper"));
+      get().getConversations({ silent: true });
+    }
+  },
+
   // MSG-07
   searchMessages: async (query, { conversationId } = {}) => {
     if (!query || query.trim().length < 2) return [];

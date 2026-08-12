@@ -44,41 +44,41 @@ function MessageSearch() {
     const conversation = conversations.find((c) => c._id === conversationId);
     if (!conversation) return "Conversation";
     return conversation.type === "group"
-      ? (conversation.name || "Unnamed group")
-      : (conversation.partner?.name ?? "Unknown");
+      ? conversation.name || "Unnamed group"
+      : conversation.partner?.name ?? "Unknown";
   };
 
   return (
-    <div className="px-4 pb-2">
+    <div className="px-3 pb-2">
       <div className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search messages…"
           aria-label="Search messages"
-          className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 pl-9 pr-8 text-sm text-slate-200 placeholder-slate-400"
+          className="field py-2 pl-9 pr-8 text-sm"
         />
         {query && (
           <button
             type="button"
             aria-label="Clear search"
             onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-ink"
           >
-            <XIcon className="w-4 h-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {query.trim().length >= 2 && (
-        <div className="mt-2 space-y-1 max-h-60 overflow-y-auto" aria-live="polite">
-          {isSearching && <p className="text-xs text-slate-500 px-1">Searching…</p>}
+        <div className="mt-2 max-h-60 space-y-1 overflow-y-auto" aria-live="polite">
+          {isSearching && <p className="px-1 text-xs text-faint">Searching…</p>}
 
           {!isSearching && results.length === 0 && (
             // an empty result must be distinguishable from a failed search
-            <p className="text-xs text-slate-500 px-1">No messages found</p>
+            <p className="px-1 text-xs text-faint">No messages found</p>
           )}
 
           {results.map((result) => (
@@ -90,11 +90,11 @@ function MessageSearch() {
                 if (conversation) selectConversation(conversation);
                 setQuery("");
               }}
-              className="w-full text-left rounded-lg bg-slate-800/40 hover:bg-slate-800 px-3 py-2"
+              className="w-full rounded-lg bg-raised/40 px-3 py-2 text-left transition-colors hover:bg-raised/70"
             >
-              <p className="text-xs text-cyan-400">{titleFor(result.conversationId)}</p>
-              <p className="text-sm text-slate-300 truncate">{result.text}</p>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-accent-soft">{titleFor(result.conversationId)}</p>
+              <p className="truncate text-sm text-ink/90">{result.text}</p>
+              <p className="text-[10px] text-faint">
                 {new Date(result.createdAt).toLocaleDateString()}
               </p>
             </button>

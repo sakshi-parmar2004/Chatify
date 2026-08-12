@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { BellOffIcon, UsersIcon } from "lucide-react";
+import { BellOffIcon } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import NoChatsFound from "./NoChatsFound";
+import Avatar from "./ui/Avatar";
 import { useAuthStore } from "../store/useAuthStore";
 
 /** What the sidebar shows under the name. */
@@ -21,13 +22,8 @@ const previewOf = (conversation) => {
 
 const titleOf = (conversation) =>
   conversation.type === "group"
-    ? (conversation.name || "Unnamed group")
-    : (conversation.partner?.name ?? "Unknown");
-
-const avatarOf = (conversation) =>
-  conversation.type === "group"
-    ? conversation.image
-    : conversation.partner?.profilePic;
+    ? conversation.name || "Unnamed group"
+    : conversation.partner?.name ?? "Unknown";
 
 function ChatsList() {
   const {
@@ -35,6 +31,7 @@ function ChatsList() {
     conversations,
     isUsersLoading,
     selectConversation,
+    selectedConversation,
     unreadCounts,
   } = useChatStore();
   const { onlineUsers } = useAuthStore();
@@ -51,56 +48,50 @@ function ChatsList() {
       {conversations.map((conversation) => {
         const unread = unreadCounts[conversation._id] ?? 0;
         const isGroup = conversation.type === "group";
-        const isOnline = !isGroup && onlineUsers.includes(conversation.partner?._id);
+        const isSelected = selectedConversation?._id === conversation._id;
         const preview = previewOf(conversation);
-        const isMuted = conversation.mutedUntil && new Date(conversation.mutedUntil) > new Date();
+        const isMuted =
+          conversation.mutedUntil && new Date(conversation.mutedUntil) > new Date();
 
         return (
           <button
             key={conversation._id}
             type="button"
-            className="w-full text-left bg-cyan-500/10 p-4 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
+            aria-current={isSelected ? "true" : undefined}
+            className={`w-full rounded-xl border p-3 text-left transition-colors ${
+              isSelected
+                ? "border-accent/30 bg-accent/15"
+                : "border-transparent hover:border-line/10 hover:bg-line/[0.06]"
+            }`}
             onClick={() => selectConversation(conversation)}
           >
             <div className="flex items-center gap-3">
-              <div
-                className={`avatar shrink-0 ${
-                  isGroup ? "" : isOnline ? "online" : "offline"
-                }`}
-              >
-                <div className="size-12 rounded-full bg-slate-700 flex items-center justify-center">
-                  {avatarOf(conversation) ? (
-                    <img src={avatarOf(conversation)} alt="" />
-                  ) : isGroup ? (
-                    <UsersIcon className="w-6 h-6 text-slate-300 m-auto" />
-                  ) : (
-                    <img src="/avatar.png" alt="" />
-                  )}
-                </div>
-              </div>
+              <Avatar
+                src={isGroup ? conversation.image : conversation.partner?.profilePic}
+                name={titleOf(conversation)}
+                isGroup={isGroup}
+                presence={isGroup ? null : onlineUsers.includes(conversation.partner?._id)}
+              />
 
               {/* min-w-0 lets the name and preview truncate instead of pushing
                   the badge out of the row */}
               <div className="min-w-0 flex-1">
                 <h4
                   className={`truncate ${
-                    unread > 0 ? "text-white font-semibold" : "text-slate-200 font-medium"
+                    unread > 0 ? "font-semibold text-ink" : "font-medium text-ink/90"
                   }`}
                 >
                   {titleOf(conversation)}
-                  {!isGroup && (
-                    <span className="sr-only">{isOnline ? " (online)" : " (offline)"}</span>
-                  )}
                 </h4>
-                {preview && <p className="text-xs text-slate-400 truncate">{preview}</p>}
+                {preview && <p className="truncate text-xs text-muted">{preview}</p>}
               </div>
 
               {isMuted && (
-                <BellOffIcon className="w-4 h-4 shrink-0 text-slate-500" aria-label="Muted" />
+                <BellOffIcon className="h-4 w-4 shrink-0 text-faint" aria-label="Muted" />
               )}
 
               {unread > 0 && (
-                <span className="shrink-0 rounded-full bg-cyan-500 text-slate-900 text-xs font-semibold px-2 py-0.5">
+                <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">
                   {unread > 99 ? "99+" : unread}
                   <span className="sr-only"> unread messages</span>
                 </span>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import Modal from "./ui/Modal";
 import toast from "react-hot-toast";
-import { BellIcon, XIcon } from "lucide-react";
+import { BellIcon } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
 import { enablePush, disablePush, isPushSupported, pushPermission } from "../lib/push";
 
@@ -59,15 +60,7 @@ function NotificationSettings({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-      <div className="w-full max-w-md rounded-xl bg-slate-900 border border-slate-700 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <BellIcon className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-slate-100 font-medium flex-1">Notifications</h2>
-          <button type="button" aria-label="Close" onClick={onClose}>
-            <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200" />
-          </button>
-        </div>
+    <Modal title="Notifications" icon={BellIcon} onClose={onClose} maxWidth="max-w-md">
 
         {isPushSupported() ? (
           <label className="flex items-center gap-3 mb-5 cursor-pointer">
@@ -76,17 +69,17 @@ function NotificationSettings({ onClose }) {
               checked={pushEnabled}
               disabled={isBusy}
               onChange={togglePush}
-              className="accent-cyan-500"
+              className="accent-[rgb(var(--accent))]"
             />
-            <span className="text-sm text-slate-200">
+            <span className="text-sm text-ink">
               Notify me when the app is closed
-              <span className="block text-xs text-slate-500">
+              <span className="block text-xs text-faint">
                 Your browser will ask for permission.
               </span>
             </span>
           </label>
         ) : (
-          <p className="text-sm text-slate-500 mb-5">
+          <p className="text-sm text-faint mb-5">
             This browser does not support push notifications.
           </p>
         )}
@@ -96,14 +89,14 @@ function NotificationSettings({ onClose }) {
             type="checkbox"
             checked={dnd.enabled}
             onChange={(event) => saveDnd({ ...dnd, enabled: event.target.checked })}
-            className="accent-cyan-500"
+            className="accent-[rgb(var(--accent))]"
           />
-          <span className="text-sm text-slate-200">Quiet hours</span>
+          <span className="text-sm text-ink">Quiet hours</span>
         </label>
 
         {dnd.enabled && (
           <div className="flex items-center gap-3 pl-7">
-            <label className="text-xs text-slate-400">
+            <label className="text-xs text-muted">
               From
               <input
                 type="time"
@@ -111,27 +104,26 @@ function NotificationSettings({ onClose }) {
                 onChange={(event) =>
                   saveDnd({ ...dnd, startMinute: toMinutes(event.target.value) })
                 }
-                className="ml-2 bg-slate-800/50 border border-slate-700/50 rounded px-2 py-1 text-slate-200"
+                className="ml-2 bg-raised/50 border border-line/10 rounded px-2 py-1 text-ink"
               />
             </label>
-            <label className="text-xs text-slate-400">
+            <label className="text-xs text-muted">
               to
               <input
                 type="time"
                 value={toTimeValue(dnd.endMinute)}
                 onChange={(event) => saveDnd({ ...dnd, endMinute: toMinutes(event.target.value) })}
-                className="ml-2 bg-slate-800/50 border border-slate-700/50 rounded px-2 py-1 text-slate-200"
+                className="ml-2 bg-raised/50 border border-line/10 rounded px-2 py-1 text-ink"
               />
             </label>
           </div>
         )}
 
-        <p className="text-xs text-slate-500 mt-4">
+        <p className="text-xs text-faint mt-4">
           A direct mention still reaches you in a muted conversation, but never during quiet
           hours.
         </p>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

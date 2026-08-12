@@ -2,21 +2,22 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { CheckIcon, CheckCheckIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import { useThemeStore } from "../store/useThemeStore";
 import { receiptFor, RECEIPT } from "../lib/receipts";
+import { resolveWallpaper, wallpaperStyle } from "../lib/wallpapers";
 import ChatHeader from "./ChatHeader";
 import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessageInput from "./MessageInput";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
 import MessageBubble from "./MessageBubble";
 
-// These sit on the cyan own-message bubble, so "read" is signalled by a lighter,
-// full-opacity tick rather than the usual blue, which would disappear into the
-// background. The label is not decoration — tick shape alone is not accessible.
+// "Read" is a lighter accent rather than a separate blue: on a themed bubble a
+// fixed blue is invisible in half the palettes.
 const RECEIPT_ICONS = {
   [RECEIPT.SENDING]: { Icon: CheckIcon, className: "opacity-40", label: "Sending" },
   [RECEIPT.SENT]: { Icon: CheckIcon, className: "opacity-70", label: "Sent" },
   [RECEIPT.DELIVERED]: { Icon: CheckCheckIcon, className: "opacity-70", label: "Delivered" },
-  [RECEIPT.READ]: { Icon: CheckCheckIcon, className: "text-sky-200", label: "Read" },
+  [RECEIPT.READ]: { Icon: CheckCheckIcon, className: "text-accent-soft", label: "Read" },
 };
 
 export function MessageStatusIcon({ receipt }) {
@@ -44,6 +45,7 @@ function ChatContainer() {
     cursors,
   } = useChatStore();
   const { authUser } = useAuthStore();
+  const globalWallpaper = useThemeStore((state) => state.wallpaper);
 
   const messagesContainerRef = useRef(null);
   const isPinnedToBottomRef = useRef(true);
@@ -74,9 +76,6 @@ function ChatContainer() {
     // the history has loaded, so this re-runs once it arrives.
   }, [selectedConversation, markConversationAsRead, messages]);
 
-  // Scroll the container itself. scrollIntoView() also scrolls every scrollable
-  // ancestor, which drags the whole page down and hides the headers.
-  //
   // useLayoutEffect rather than useEffect: prepending an older page must not be
   // painted at the wrong offset first and then corrected, which reads as a jump.
   useLayoutEffect(() => {
@@ -84,7 +83,6 @@ function ChatContainer() {
     if (!container) return;
 
     if (restoreScrollRef.current !== null) {
-      // keep the message the user was looking at exactly where it was
       container.scrollTop = container.scrollHeight - restoreScrollRef.current;
       restoreScrollRef.current = null;
       return;
@@ -93,8 +91,6 @@ function ChatContainer() {
     if (isPinnedToBottomRef.current) container.scrollTop = container.scrollHeight;
   }, [messages]);
 
-  // Once the user scrolls up to read history, stop yanking them back down;
-  // resume auto-scrolling when they return to the bottom.
   const handleScroll = (event) => {
     const { scrollHeight, scrollTop, clientHeight } = event.currentTarget;
     isPinnedToBottomRef.current = scrollHeight - scrollTop - clientHeight < 80;
@@ -108,46 +104,61 @@ function ChatContainer() {
   if (!selectedConversation) return null;
 
   const conversationCursors = cursors[selectedConversation._id];
+  const wallpaper = resolveWallpaper(selectedConversation, globalWallpaper);
+  const wallpaperCss = wallpaperStyle(wallpaper);
 
   return (
     <>
       <ChatHeader />
-      {/* min-h-0 is what allows this to scroll inside the flex column */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 min-h-0 px-3 sm:px-6 overflow-y-auto py-4 sm:py-8"
-      >
-        {isMessagesLoading ? (
-          <MessagesLoadingSkeleton />
-        ) : messages.length > 0 ? (
-          <div className="max-w-3xl mx-auto space-y-6">
-            {isLoadingOlder && (
-              <p className="text-center text-xs text-slate-500">Loading older messages…</p>
-            )}
-            {!hasMoreMessages && (
-              <p className="text-center text-xs text-slate-600">
-                This is the beginning of the conversation
-              </p>
-            )}
 
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg._id}
-                message={msg}
-                conversation={selectedConversation}
-                authUser={authUser}
-                receipt={receiptFor(msg, selectedConversation, conversationCursors, authUser._id)}
-              />
-            ))}
-          </div>
-        ) : (
-          // keyed so switching conversations remounts it and re-rolls the suggestions
-          <NoChatHistoryPlaceholder
-            key={selectedConversation._id}
-            name={selectedConversation.partner?.name ?? selectedConversation.name ?? "everyone"}
-          />
+      <div className="relative min-h-0 flex-1">
+        {/* UIX-04 — three layers. The scrim is what makes an arbitrary
+            user-chosen image safe to put behind text: without it a light photo
+            drops body copy to unreadable contrast. */}
+        {wallpaperCss && (
+          <>
+            <div aria-hidden="true" className="wallpaper-layer" style={wallpaperCss} />
+            <div aria-hidden="true" className="wallpaper-scrim" />
+          </>
         )}
+
+        {/* min-h-0 is what allows this to scroll inside the flex column */}
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="relative h-full overflow-y-auto px-3 py-4 sm:px-6 sm:py-8"
+        >
+          {isMessagesLoading ? (
+            <MessagesLoadingSkeleton />
+          ) : messages.length > 0 ? (
+            <div className="mx-auto max-w-3xl space-y-5">
+              {isLoadingOlder && (
+                <p className="text-center text-xs text-faint">Loading older messages…</p>
+              )}
+              {!hasMoreMessages && (
+                <p className="text-center text-xs text-faint/70">
+                  This is the beginning of the conversation
+                </p>
+              )}
+
+              {messages.map((msg) => (
+                <MessageBubble
+                  key={msg._id}
+                  message={msg}
+                  conversation={selectedConversation}
+                  authUser={authUser}
+                  receipt={receiptFor(msg, selectedConversation, conversationCursors, authUser._id)}
+                />
+              ))}
+            </div>
+          ) : (
+            // keyed so switching conversations remounts it and re-rolls the suggestions
+            <NoChatHistoryPlaceholder
+              key={selectedConversation._id}
+              name={selectedConversation.partner?.name ?? selectedConversation.name ?? "everyone"}
+            />
+          )}
+        </div>
       </div>
 
       <MessageInput />

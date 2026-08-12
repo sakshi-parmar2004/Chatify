@@ -8,10 +8,10 @@ import ProfileHeader from "../components/ProfileHeader";
 import ActiveTabSwitch from "../components/ActiveTabSwitch";
 import ChatsList from "../components/ChatsList";
 import MessageSearch from "../components/MessageSearch";
-import NewGroupDialog from "../components/NewGroupDialog";
 import ContactList from "../components/ContactList";
 import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
+import NewGroupDialog from "../components/NewGroupDialog";
 
 function ChatPage() {
   const { activeTab, selectedConversation, subscribeToInbox, unsubscribeFromInbox } =
@@ -34,11 +34,11 @@ function ChatPage() {
     // Full-bleed and full-height on phones; a fixed card once there is room for
     // both panes side by side. dvh rather than vh so mobile browser chrome does
     // not push the composer off-screen.
-    <div className="relative w-full max-w-6xl h-[100dvh] sm:h-[calc(100dvh-2rem)] md:h-[800px] md:max-h-[calc(100dvh-2rem)]">
+    <div className="relative h-[100dvh] w-full max-w-6xl sm:h-[calc(100dvh-2rem)] md:h-[820px] md:max-h-[calc(100dvh-2rem)]">
       <BorderAnimatedContainer>
         {/* LEFT SIDE — the only pane on a phone until a conversation is opened */}
         <div
-          className={`w-full md:w-80 md:shrink-0 bg-slate-800/50 backdrop-blur-sm flex-col ${
+          className={`w-full flex-col border-line/10 md:w-80 md:shrink-0 md:border-r ${
             selectedConversation ? "hidden md:flex" : "flex"
           }`}
         >
@@ -49,13 +49,13 @@ function ChatPage() {
             <button
               type="button"
               onClick={() => setShowNewGroup(true)}
-              className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-700/60 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg border border-line/15 py-2 text-sm text-muted transition-colors hover:bg-line/10 hover:text-ink"
             >
-              <UsersIcon className="w-4 h-4" /> New group
+              <UsersIcon className="h-4 w-4" /> New group
             </button>
           )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 pt-0">
             {activeTab === "chats" ? <ChatsList /> : <ContactList />}
           </div>
         </div>
@@ -63,7 +63,7 @@ function ChatPage() {
         {/* RIGHT SIDE — takes over the screen on a phone once a chat is open.
             min-w-0 lets long names truncate instead of stretching the pane. */}
         <div
-          className={`flex-1 min-w-0 flex-col bg-slate-900/50 backdrop-blur-sm ${
+          className={`min-w-0 flex-1 flex-col ${
             selectedConversation ? "flex" : "hidden md:flex"
           }`}
         >

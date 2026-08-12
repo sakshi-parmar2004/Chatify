@@ -17,14 +17,14 @@ class ErrorBoundary extends Component {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <h1 className="text-xl font-semibold text-slate-200">Something went wrong</h1>
-        <p className="text-slate-400 max-w-md">
+      <div className="min-h-[100dvh] bg-bg flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className="text-xl font-semibold text-ink">Something went wrong</h1>
+        <p className="text-muted max-w-md">
           The app hit an unexpected error. Reloading usually clears it.
         </p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 text-sm text-cyan-400 bg-cyan-500/10 rounded-lg hover:bg-cyan-500/20 transition-colors"
+          className="px-4 py-2 text-sm text-accent-soft bg-accent/10 rounded-lg hover:bg-accent/20 transition-colors"
         >
           Reload
         </button>

@@ -20,6 +20,14 @@ const groupReactions = (reactions = []) => {
   return [...byEmoji.entries()].map(([emoji, userIds]) => ({ emoji, userIds }));
 };
 
+/**
+ * Message row.
+ *
+ * daisyUI's `chat`/`chat-bubble` are gone (DEC-13). They were fully overridden
+ * inline anyway, and their `:before` tail kept daisyUI's own `--b2` colour — so
+ * the tail already mismatched the bubble it was attached to, and followed the OS
+ * colour scheme independently of the app.
+ */
 function MessageBubble({ message, conversation, authUser, receipt }) {
   const { setReplyTarget, editMessage, deleteMessage, toggleReaction } = useChatStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -31,7 +39,17 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
   const isAdmin = isGroup && (conversation.admins ?? []).some((id) => id === authUser._id);
   const withinWindow = Date.now() - new Date(message.createdAt).getTime() <= EDIT_WINDOW_MS;
 
-  // In a group you cannot tell who said what from position alone.
+  // A system event is neither side's message — it belongs to the conversation.
+  if (message.type === "system") {
+    return (
+      <div className="flex justify-center">
+        <span className="rounded-full bg-raised/50 px-3 py-1 text-xs text-faint">
+          {message.text}
+        </span>
+      </div>
+    );
+  }
+
   const senderName = isGroup
     ? conversation.participants?.find((p) => p._id === message.senderId)?.name
     : null;
@@ -43,8 +61,8 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
 
   if (message.deletedAt) {
     return (
-      <div className={`chat ${isMine ? "chat-end" : "chat-start"}`}>
-        <div className="chat-bubble bg-slate-800/60 text-slate-500 italic text-sm">
+      <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+        <div className="rounded-2xl border border-line/10 bg-raised/40 px-4 py-2 text-sm italic text-faint">
           This message was deleted
         </div>
       </div>
@@ -61,18 +79,26 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
   };
 
   return (
-    <div className={`chat group ${isMine ? "chat-end" : "chat-start"}`}>
+    <div className={`group flex flex-col ${isMine ? "items-end" : "items-start"}`}>
       <div
-        className={`chat-bubble relative max-w-[85%] sm:max-w-[70%] break-words ${
-          isMine ? "bg-cyan-600 text-white" : "bg-slate-800 text-slate-200"
+        className={`relative max-w-[85%] break-words rounded-2xl px-4 py-2.5 sm:max-w-[70%] ${
+          isMine
+            ? // own messages carry the accent; the ink token guarantees contrast
+              // against it on every theme, including the light ones
+              "rounded-br-md bg-accent text-accent-ink"
+            : "bubble-floor rounded-bl-md border border-line/10 text-ink backdrop-blur-sm"
         }`}
       >
         {senderName && !isMine && (
-          <p className="text-xs font-semibold text-cyan-300 mb-1">{senderName}</p>
+          <p className="mb-1 text-xs font-semibold text-accent-soft">{senderName}</p>
         )}
 
         {message.replySnapshot && (
-          <div className="mb-2 border-l-2 border-cyan-300/60 pl-2 text-xs opacity-80">
+          <div
+            className={`mb-2 rounded border-l-2 pl-2 text-xs ${
+              isMine ? "border-accent-ink/50 opacity-80" : "border-accent/60 text-muted"
+            }`}
+          >
             <p className="truncate">
               {message.replySnapshot.deleted
                 ? "Deleted message"
@@ -85,7 +111,7 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
           <img
             src={message.image}
             alt="Shared"
-            className="rounded-lg w-full max-w-[220px] sm:max-w-xs h-40 sm:h-48 object-cover"
+            className="h-40 w-full max-w-[220px] rounded-lg object-cover sm:h-48 sm:max-w-xs"
           />
         )}
 
@@ -99,28 +125,26 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => event.key === "Escape" && setIsEditing(false)}
               aria-label="Edit message"
-              className="bg-slate-900/40 rounded px-2 py-1 text-sm min-w-0 flex-1"
+              className="min-w-0 flex-1 rounded bg-bg/30 px-2 py-1 text-sm outline-none"
             />
             <button type="submit" className="text-xs underline">
               Save
             </button>
           </form>
         ) : (
-          message.text && <p className="mt-2">{message.text}</p>
+          message.text && <p className="mt-1">{message.text}</p>
         )}
 
-        {message.linkPreview?.url && <LinkPreview preview={message.linkPreview} />}
+        {message.linkPreview?.url && <LinkPreview preview={message.linkPreview} isMine={isMine} />}
 
-        {/* the opacity sits on the time, not the row, so a read tick can reach
-            full strength against the cyan bubble */}
-        <p className="text-xs mt-1 flex items-center gap-1">
-          <span className="opacity-75">{time}</span>
-          {message.editedAt && <span className="opacity-75">· edited</span>}
+        <p className="mt-1 flex items-center gap-1 text-xs">
+          <span className="opacity-70">{time}</span>
+          {message.editedAt && <span className="opacity-70">· edited</span>}
           {isMine && <MessageStatusIcon receipt={receipt} />}
         </p>
 
         {grouped.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
+          <div className="mt-1 flex flex-wrap gap-1">
             {grouped.map(({ emoji, userIds }) => (
               <button
                 key={emoji}
@@ -129,10 +153,10 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
                 aria-label={`${emoji} ${userIds.length} ${
                   userIds.includes(authUser._id) ? "(including you)" : ""
                 }`}
-                className={`text-xs rounded-full px-1.5 py-0.5 border ${
+                className={`rounded-full border px-1.5 py-0.5 text-xs transition-colors ${
                   userIds.includes(authUser._id)
-                    ? "border-cyan-300 bg-cyan-500/30"
-                    : "border-slate-600 bg-slate-900/30"
+                    ? "border-accent-soft/60 bg-accent-soft/25"
+                    : "border-line/20 bg-bg/25"
                 }`}
               >
                 {emoji} {userIds.length}
@@ -144,23 +168,23 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
 
       {/* Actions appear on hover on a pointer device and on focus for keyboard
           users, so they are reachable without a hover state. */}
-      <div className="chat-footer opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-1 mt-1">
+      <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
         <button
           type="button"
           aria-label="Reply"
           onClick={() => setReplyTarget(message)}
-          className="text-slate-400 hover:text-slate-200"
+          className="text-muted transition-colors hover:text-ink"
         >
-          <CornerUpLeftIcon className="w-3.5 h-3.5" />
+          <CornerUpLeftIcon className="h-3.5 w-3.5" />
         </button>
 
         <button
           type="button"
           aria-label="Add reaction"
           onClick={() => setShowReactions((open) => !open)}
-          className="text-slate-400 hover:text-slate-200"
+          className="text-muted transition-colors hover:text-ink"
         >
-          <SmilePlusIcon className="w-3.5 h-3.5" />
+          <SmilePlusIcon className="h-3.5 w-3.5" />
         </button>
 
         {isMine && withinWindow && !isEditing && (
@@ -171,9 +195,9 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
               setDraft(message.text ?? "");
               setIsEditing(true);
             }}
-            className="text-slate-400 hover:text-slate-200"
+            className="text-muted transition-colors hover:text-ink"
           >
-            <PencilIcon className="w-3.5 h-3.5" />
+            <PencilIcon className="h-3.5 w-3.5" />
           </button>
         )}
 
@@ -182,14 +206,14 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
             type="button"
             aria-label="Delete message"
             onClick={() => deleteMessage(message._id)}
-            className="text-slate-400 hover:text-rose-400"
+            className="text-muted transition-colors hover:text-danger"
           >
-            <Trash2Icon className="w-3.5 h-3.5" />
+            <Trash2Icon className="h-3.5 w-3.5" />
           </button>
         )}
 
         {showReactions && (
-          <span className="flex items-center gap-1 bg-slate-800 rounded-full px-2 py-1 border border-slate-700">
+          <span className="glass-raised flex items-center gap-1 rounded-full px-2 py-1">
             {QUICK_REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -199,7 +223,7 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
                   toggleReaction(message._id, emoji);
                   setShowReactions(false);
                 }}
-                className="text-sm hover:scale-125 transition-transform"
+                className="text-sm transition-transform hover:scale-125"
               >
                 {emoji}
               </button>
@@ -208,9 +232,9 @@ function MessageBubble({ message, conversation, authUser, receipt }) {
               type="button"
               aria-label="Close reactions"
               onClick={() => setShowReactions(false)}
-              className="text-slate-500"
+              className="text-faint"
             >
-              <XIcon className="w-3 h-3" />
+              <XIcon className="h-3 w-3" />
             </button>
           </span>
         )}
@@ -234,7 +258,7 @@ function Attachment({ attachment }) {
       <img
         src={attachment.url}
         alt={attachment.name || "Shared image"}
-        className="rounded-lg w-full max-w-[220px] sm:max-w-xs h-40 sm:h-48 object-cover"
+        className="h-40 w-full max-w-[220px] rounded-lg object-cover sm:h-48 sm:max-w-xs"
       />
     );
   }
@@ -246,7 +270,7 @@ function Attachment({ attachment }) {
         src={attachment.url}
         controls
         preload="metadata"
-        className="rounded-lg w-full max-w-[220px] sm:max-w-xs"
+        className="w-full max-w-[220px] rounded-lg sm:max-w-xs"
       >
         <track kind="captions" />
       </video>
@@ -267,33 +291,35 @@ function Attachment({ attachment }) {
       target="_blank"
       rel="noreferrer noopener"
       download={attachment.name || undefined}
-      className="flex items-center gap-2 underline text-sm"
+      className="flex items-center gap-2 text-sm underline"
     >
       <span className="truncate">{attachment.name || ATTACHMENT_LABELS.file}</span>
       {attachment.bytes > 0 && (
-        <span className="opacity-70 shrink-0">{formatBytes(attachment.bytes)}</span>
+        <span className="shrink-0 opacity-70">{formatBytes(attachment.bytes)}</span>
       )}
     </a>
   );
 }
 
-function LinkPreview({ preview }) {
+function LinkPreview({ preview, isMine }) {
   return (
     <a
       href={preview.url}
       target="_blank"
       rel="noreferrer noopener"
-      className="mt-2 flex gap-2 rounded-lg bg-slate-900/30 p-2 border border-slate-700/50"
+      className={`mt-2 flex gap-2 rounded-lg border p-2 ${
+        isMine ? "border-accent-ink/20 bg-bg/15" : "border-line/15 bg-bg/25"
+      }`}
     >
       {preview.image && (
-        <img src={preview.image} alt="" className="w-12 h-12 rounded object-cover shrink-0" />
+        <img src={preview.image} alt="" className="h-12 w-12 shrink-0 rounded object-cover" />
       )}
       <span className="min-w-0">
-        <span className="block text-xs font-semibold truncate">
+        <span className="block truncate text-xs font-semibold">
           {preview.title || preview.url}
         </span>
         {preview.description && (
-          <span className="block text-xs opacity-75 line-clamp-2">{preview.description}</span>
+          <span className="line-clamp-2 block text-xs opacity-75">{preview.description}</span>
         )}
       </span>
     </a>

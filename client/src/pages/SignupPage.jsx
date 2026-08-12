@@ -14,18 +14,18 @@ function SignupPage() {
   };
 
   return (
-    <div className="w-full flex items-center justify-center p-3 sm:p-4 bg-slate-900">
+    <div className="w-full flex items-center justify-center p-3 sm:p-4 bg-surface">
       <div className="relative w-full max-w-6xl md:h-[800px] md:max-h-[calc(100dvh-2rem)]">
         <BorderAnimatedContainer>
           <div className="w-full flex flex-col md:flex-row">
             {/* FORM COLUMN - LEFT SIDE */}
-            <div className="w-full md:w-1/2 p-6 sm:p-8 flex items-center justify-center md:border-r border-slate-600/30">
+            <div className="w-full md:w-1/2 p-6 sm:p-8 flex items-center justify-center md:border-r border-line/10">
               <div className="w-full max-w-md">
                 {/* HEADING TEXT */}
                 <div className="text-center mb-8">
-                  <MessageCircleIcon className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-                  <h2 className="text-2xl font-bold text-slate-200 mb-2">Create Account</h2>
-                  <p className="text-slate-400">Sign up for a new account</p>
+                  <MessageCircleIcon className="w-12 h-12 mx-auto text-muted mb-4" />
+                  <h2 className="text-2xl font-bold text-ink mb-2">Create Account</h2>
+                  <p className="text-muted">Sign up for a new account</p>
                 </div>
 
                 {/* FORM */}
@@ -41,7 +41,7 @@ function SignupPage() {
                         id="signup-name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="input"
+                        className="field pl-10"
                         placeholder="John Doe"
                       />
                     </div>
@@ -58,7 +58,7 @@ function SignupPage() {
                         id="signup-email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="input"
+                        className="field pl-10"
                         placeholder="johndoe@gmail.com"
                       />
                     </div>
@@ -75,7 +75,7 @@ function SignupPage() {
                         id="signup-password"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="input"
+                        className="field pl-10"
                         placeholder="Enter your password"
                       />
                     </div>
@@ -108,7 +108,7 @@ function SignupPage() {
                   className="w-full h-auto object-contain"
                 />
                 <div className="mt-6 text-center">
-                  <h3 className="text-xl font-medium text-cyan-400">Start Your Journey Today</h3>
+                  <h3 className="text-xl font-medium text-accent-soft">Start Your Journey Today</h3>
 
                   <div className="mt-4 flex justify-center gap-4">
                     <span className="auth-badge">Free</span>

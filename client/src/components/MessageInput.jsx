@@ -125,8 +125,8 @@ function MessageInput() {
 
   return (
     <div
-      className={`p-3 sm:p-4 border-t border-slate-700/50 shrink-0 relative ${
-        isDragging ? "bg-cyan-500/10" : ""
+      className={`p-3 sm:p-4 border-t border-line/10 glass-plain shrink-0 relative ${
+        isDragging ? "bg-accent/10" : ""
       }`}
       onDragOver={(event) => {
         event.preventDefault();
@@ -136,16 +136,16 @@ function MessageInput() {
       onDrop={handleDrop}
     >
       {isDragging && (
-        <div className="absolute inset-2 rounded-lg border-2 border-dashed border-cyan-400 flex items-center justify-center pointer-events-none">
-          <p className="text-cyan-300 text-sm">Drop to attach</p>
+        <div className="absolute inset-2 rounded-lg border-2 border-dashed border-accent flex items-center justify-center pointer-events-none">
+          <p className="text-accent-soft text-sm">Drop to attach</p>
         </div>
       )}
 
       {replyTarget && (
-        <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 rounded-lg bg-slate-800/60 border-l-2 border-cyan-500 px-3 py-2">
+        <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 rounded-lg bg-raised/50 border-l-2 border-accent px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-cyan-400">Replying to</p>
-            <p className="text-sm text-slate-300 truncate">
+            <p className="text-xs text-accent-soft">Replying to</p>
+            <p className="text-sm text-ink/90 truncate">
               {replyTarget.text || (replyTarget.image || replyTarget.attachment ? "Attachment" : "")}
             </p>
           </div>
@@ -153,7 +153,7 @@ function MessageInput() {
             type="button"
             aria-label="Cancel reply"
             onClick={() => setReplyTarget(null)}
-            className="shrink-0 text-slate-400 hover:text-slate-200"
+            className="shrink-0 text-muted hover:text-ink"
           >
             <XIcon className="w-4 h-4" />
           </button>
@@ -161,15 +161,15 @@ function MessageInput() {
       )}
 
       {recorder.isRecording && (
-        <div className="max-w-3xl mx-auto mb-3 flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-          <span className="text-sm text-slate-300" aria-live="polite">
+        <div className="max-w-3xl mx-auto mb-3 flex items-center gap-3 rounded-lg bg-raised/50 px-3 py-2">
+          <span className="w-2 h-2 rounded-full bg-danger animate-pulse" />
+          <span className="text-sm text-ink/90" aria-live="polite">
             Recording {formatDuration(recorder.seconds)}
           </span>
           <button
             type="button"
             onClick={() => finishRecording({ discard: true })}
-            className="ml-auto text-xs text-slate-400 hover:text-slate-200"
+            className="ml-auto text-xs text-muted hover:text-ink"
           >
             Discard
           </button>
@@ -177,7 +177,7 @@ function MessageInput() {
             type="button"
             aria-label="Stop recording"
             onClick={() => finishRecording({ discard: false })}
-            className="text-cyan-400 hover:text-cyan-300"
+            className="text-accent-soft hover:text-accent"
           >
             <SquareIcon className="w-4 h-4" />
           </button>
@@ -191,11 +191,11 @@ function MessageInput() {
               <img
                 src={pending.previewUrl}
                 alt="Preview"
-                className="w-20 h-20 object-cover rounded-lg border border-slate-700"
+                className="w-20 h-20 object-cover rounded-lg border border-line/15"
               />
             ) : (
-              <div className="w-20 h-20 rounded-lg border border-slate-700 bg-slate-800 flex items-center justify-center px-2">
-                <span className="text-[10px] text-slate-300 text-center break-all line-clamp-3">
+              <div className="w-20 h-20 rounded-lg border border-line/15 bg-raised/60 flex items-center justify-center px-2">
+                <span className="text-[10px] text-ink/80 text-center break-all line-clamp-3">
                   {pending.file.name}
                 </span>
               </div>
@@ -204,7 +204,7 @@ function MessageInput() {
               <button
                 onClick={clearPending}
                 aria-label="Remove attachment"
-                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-slate-200 hover:bg-slate-700"
+                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-raised/60 flex items-center justify-center text-ink hover:bg-raised"
                 type="button"
               >
                 <XIcon className="w-4 h-4" />
@@ -215,20 +215,20 @@ function MessageInput() {
           {isUploading && (
             <div className="flex-1 min-w-0">
               {/* real bytes transferred, not a fake animation */}
-              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-line/20 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-cyan-500 transition-all"
+                  className="h-full bg-accent transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-slate-400" aria-live="polite">
+                <span className="text-xs text-muted" aria-live="polite">
                   Uploading {progress}%
                 </span>
                 <button
                   type="button"
                   onClick={cancelUpload}
-                  className="text-xs text-slate-400 hover:text-rose-400"
+                  className="text-xs text-muted hover:text-danger"
                 >
                   Cancel
                 </button>
@@ -254,7 +254,7 @@ function MessageInput() {
             else emitStopTyping();
           }}
           onPaste={handlePaste}
-          className="flex-1 min-w-0 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-3 sm:px-4 text-slate-200 placeholder-slate-400"
+          className="flex-1 min-w-0 bg-slate-800/50 border border-line/15/50 rounded-lg py-2 px-3 sm:px-4 text-ink placeholder-slate-400"
           placeholder="Type your message..."
         />
 
@@ -277,8 +277,8 @@ function MessageInput() {
           onClick={() => imageInputRef.current?.click()}
           aria-label="Attach an image"
           disabled={isUploading}
-          className={`shrink-0 bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-3 py-2 transition-colors disabled:opacity-50 ${
-            pending?.previewUrl ? "text-cyan-500" : ""
+          className={`icon-btn shrink-0 bg-raised/40 ${
+            pending?.previewUrl ? "text-accent" : ""
           }`}
         >
           <ImageIcon className="w-5 h-5" />
@@ -289,7 +289,7 @@ function MessageInput() {
           onClick={() => fileInputRef.current?.click()}
           aria-label="Attach a file"
           disabled={isUploading}
-          className="shrink-0 bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-3 py-2 transition-colors disabled:opacity-50"
+          className="icon-btn shrink-0 bg-raised/40"
         >
           <PaperclipIcon className="w-5 h-5" />
         </button>
@@ -301,8 +301,8 @@ function MessageInput() {
           }
           aria-label={recorder.isRecording ? "Stop recording" : "Record a voice message"}
           disabled={isUploading}
-          className={`shrink-0 bg-slate-800/50 rounded-lg px-3 py-2 transition-colors disabled:opacity-50 ${
-            recorder.isRecording ? "text-rose-400" : "text-slate-400 hover:text-slate-200"
+          className={`icon-btn shrink-0 bg-raised/40 ${
+            recorder.isRecording ? "text-danger" : ""
           }`}
         >
           <MicIcon className="w-5 h-5" />
@@ -312,7 +312,7 @@ function MessageInput() {
           type="submit"
           disabled={(!text.trim() && !pending) || isUploading}
           aria-label="Send message"
-          className="shrink-0 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-3 sm:px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn-primary shrink-0 px-3 sm:px-4"
         >
           <SendIcon className="w-5 h-5" />
         </button>
