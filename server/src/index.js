@@ -1,3 +1,4 @@
+import { log } from "./lib/logger.js";
 import connectDB from "./lib/db.js";
 import { env_variable } from "./lib/env.js";
 import { server } from "./lib/socket.js";
@@ -12,11 +13,11 @@ const PORT = env_variable.PORT;
 await connectDB();
 
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  log.info({ port: PORT }, "server listening");
 });
 
 const shutdown = (signal) => {
-  console.log(`${signal} received, shutting down`);
+  log.info({ signal }, "shutting down");
   server.close(() => process.exit(0));
   // don't hang forever on lingering sockets
   setTimeout(() => process.exit(1), 10_000).unref();

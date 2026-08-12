@@ -1,3 +1,5 @@
+import { log } from "../lib/logger.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 import Conversation from "../models/conversation.model.js";
@@ -28,8 +30,7 @@ const EPOCH = new Date(0);
  * count needs a different cursor per conversation, which is expressible but
  * unreadable. Each of the three is index-covered.
  */
-export const listConversations = async (req, res) => {
-  try {
+export const listConversations = asyncHandler(async (req, res) => {
     const myId = req.user._id;
 
     const conversations = await Conversation.find({ participants: myId })
@@ -108,11 +109,7 @@ export const listConversations = async (req, res) => {
         })
       )
     );
-  } catch (error) {
-    console.error("Error in listConversations: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * Shape sent to the client. `partner` is a convenience for direct threads so
@@ -155,8 +152,7 @@ export const serializeConversation = (
  * Opening a chat from the contact list. Idempotent — messaging someone you
  * already have a thread with returns that thread.
  */
-export const openDirectConversation = async (req, res) => {
-  try {
+export const openDirectConversation = asyncHandler(async (req, res) => {
     const myId = req.user._id;
     const { userId } = req.params;
 
@@ -184,11 +180,7 @@ export const openDirectConversation = async (req, res) => {
         userById: new Map(users.map((user) => [String(user._id), user])),
       })
     );
-  } catch (error) {
-    console.error("Error in openDirectConversation: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * GET /api/conversations/:id/messages?before=<ISO>&limit=50
@@ -199,8 +191,7 @@ export const openDirectConversation = async (req, res) => {
  * Returned in chronological order because that is how the list renders; the
  * cursor for the next page is the oldest createdAt in the response.
  */
-export const listMessages = async (req, res) => {
-  try {
+export const listMessages = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const limit = Math.min(Number(req.query.limit) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const before = req.query.before ? new Date(req.query.before) : null;
@@ -226,11 +217,7 @@ export const listMessages = async (req, res) => {
       hasMore,
       nextCursor: messages.length > 0 ? messages[0].createdAt : null,
     });
-  } catch (error) {
-    console.error("Error in listMessages: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * PATCH /api/conversations/:id/read
@@ -238,8 +225,7 @@ export const listMessages = async (req, res) => {
  * Advances the caller's read cursor. One write regardless of how many messages
  * or participants are involved — the reason DEC-03 moved off per-message state.
  */
-export const markConversationRead = async (req, res) => {
-  try {
+export const markConversationRead = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const myId = req.user._id;
 
@@ -269,11 +255,7 @@ export const markConversationRead = async (req, res) => {
     });
 
     res.status(200).json({ lastReadAt, changed: true });
-  } catch (error) {
-    console.error("Error in markConversationRead: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * POST /api/conversations/:id/messages
@@ -282,8 +264,7 @@ export const markConversationRead = async (req, res) => {
  * rather than a field on the message: a message is "delivered" to whoever has a
  * socket open at the moment it is written.
  */
-export const createMessage = async (req, res) => {
-  try {
+export const createMessage = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const senderId = req.user._id;
     const { text, image, replyTo, attachment } = req.body;
@@ -374,11 +355,7 @@ export const createMessage = async (req, res) => {
     // push endpoint must not hold up someone's message.
     void enrichWithLinkPreview(conversation, newMessage);
     void notifyRecipients(conversation, newMessage, req.user);
-  } catch (error) {
-    console.error("Error in createMessage: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * Advance the delivery cursor for everyone who has a socket open right now, and
@@ -454,7 +431,7 @@ const enrichWithLinkPreview = async (conversation, message) => {
       emitToConversation(conversation, "messageUpdated", updated);
     }
   } catch (error) {
-    console.error("Error resolving link preview:", error.message);
+    log.warn({ err: error, conversationId: String(conversation._id) }, "link preview failed");
   }
 };
 
@@ -494,6 +471,6 @@ const notifyRecipients = async (conversation, message, sender) => {
       });
     }
   } catch (error) {
-    console.error("Error notifying recipients:", error.message);
+    log.error({ err: error, conversationId: String(conversation._id) }, "notify failed");
   }
 };

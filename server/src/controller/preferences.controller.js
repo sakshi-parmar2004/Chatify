@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import User from "../models/user.model.js";
 import Conversation from "../models/conversation.model.js";
 import { THEME_IDS, DEFAULT_THEME, validateWallpaper } from "../lib/appearance.js";
@@ -9,17 +10,12 @@ import { emitToUser } from "../lib/socket.js";
  * Follows the do-not-disturb pattern: the response is a single named envelope
  * so a future preference can be added without changing the shape.
  */
-export const getPreferences = async (req, res) => {
-  try {
+export const getPreferences = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id).select("preferences").lean();
     res.status(200).json({
       preferences: user?.preferences ?? { theme: DEFAULT_THEME, reduceTransparency: false },
     });
-  } catch (error) {
-    console.error("Error in getPreferences: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * PUT /api/preferences
@@ -27,8 +23,7 @@ export const getPreferences = async (req, res) => {
  * A partial update: the client sends only what changed, because the theme
  * picker and the transparency toggle save independently.
  */
-export const updatePreferences = async (req, res) => {
-  try {
+export const updatePreferences = asyncHandler(async (req, res) => {
     const { theme, reduceTransparency, wallpaper } = req.body ?? {};
     const update = {};
 
@@ -62,11 +57,7 @@ export const updatePreferences = async (req, res) => {
 
     const user = await User.findById(req.user._id).select("preferences").lean();
     res.status(200).json({ preferences: user.preferences });
-  } catch (error) {
-    console.error("Error in updatePreferences: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * PUT /api/conversations/:id/wallpaper — UIX-04.
@@ -74,8 +65,7 @@ export const updatePreferences = async (req, res) => {
  * Written into the caller's own participantState, so setting a wallpaper is
  * invisible to everyone else in the conversation.
  */
-export const setConversationWallpaper = async (req, res) => {
-  try {
+export const setConversationWallpaper = asyncHandler(async (req, res) => {
     const validation = validateWallpaper(req.body?.wallpaper);
     if (!validation.ok) return res.status(400).json({ message: validation.message });
 
@@ -91,8 +81,4 @@ export const setConversationWallpaper = async (req, res) => {
     });
 
     res.status(200).json({ wallpaper: validation.value });
-  } catch (error) {
-    console.error("Error in setConversationWallpaper: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});

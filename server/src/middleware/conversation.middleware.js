@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import Conversation from "../models/conversation.model.js";
 
 /**
@@ -9,8 +10,7 @@ import Conversation from "../models/conversation.model.js";
  * 403 for a conversation the caller is not part of: telling someone a
  * conversation exists but is not theirs is itself a disclosure.
  */
-export const loadConversation = async (req, res, next) => {
-  try {
+export const loadConversation = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -31,11 +31,7 @@ export const loadConversation = async (req, res, next) => {
 
     req.conversation = conversation;
     next();
-  } catch (error) {
-    console.error("Error in loadConversation: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** Group operations that only an admin may perform (GRP-02). */
 export const requireGroupAdmin = (req, res, next) => {

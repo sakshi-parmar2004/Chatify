@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import { generateToken, authCookieOptions } from "../lib/generateToken.js";
@@ -5,7 +6,7 @@ import { sendWelcomeEmail } from "../lib/email.js";
 import cloudinary from "../lib/cloudinary.js";
 import { validateImageDataUri } from "../lib/validateImage.js";
 
-export const registerUser = async (req, res) => {
+export const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
   if(!name || !email || !password) {
     return res.status(400).json({ message: "All fields are required" });
@@ -43,47 +44,43 @@ const hashedPassword = await bcrypt.hash(password, 10);
     catch (error) {
         // findOne + create is a check-then-act race; the unique index is what
         // actually enforces uniqueness, so treat its error as the same 400.
+        // Anything else is not ours to interpret — let the error handler log it.
         if (error.code === 11000) {
           return res.status(400).json({ message: "User already exists" });
         }
-        console.error(`Error: ${error.message}`);
-        res.status(500).json({ message: "Server error" });
+        throw error;
     }
-}
+})
 
-export const loginUser = async (req, res) => {
+export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   if(!email || !password) {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  try {
-    const user = await User.findOne({ email: String(email).trim().toLowerCase() });
-    //never reveal whether the email or password is incorrect to avoid giving hints to potential attackers
-    if(!user) {
-      return res.status(400).json({ message: "Invalid Credentials" });
-    }
-     const isMatch = await bcrypt.compare(password, user.password);
-    if(!isMatch) {
-      return res.status(400).json({ message: "Invalid Credentials" });
-    }
-    generateToken(user, res);
-    res.status(200).json({ message: "Login successful", user });
+  const user = await User.findOne({ email: String(email).trim().toLowerCase() });
+  // never reveal whether the email or the password was wrong — the difference
+  // is a user-enumeration oracle
+  if (!user) {
+    return res.status(400).json({ message: "Invalid Credentials" });
+  }
 
-}
-catch (error) {
-    console.error(`Error: ${error.message}`);
-    res.status(500).json({ message: "Server error" });
-}
-}
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    return res.status(400).json({ message: "Invalid Credentials" });
+  }
+
+  generateToken(user, res);
+  res.status(200).json({ message: "Login successful", user });
+})
 
 export const logoutUser = (_, res) => {
   // options must match the ones the cookie was set with, or it is not cleared
   res.clearCookie("token", authCookieOptions);
   res.status(200).json({ message: "Logout successful" });
-}
+};
 
-export const update_profile = async (req, res) => {
+export const update_profile = asyncHandler(async (req, res) => {
   const {  profilePic } = req.body;
   if(!profilePic) {
     return res.status(400).json({ message: "Profile picture is required" });
@@ -94,13 +91,12 @@ export const update_profile = async (req, res) => {
     return res.status(400).json({ message: validation.message });
   }
 
-  try {
-    const { secure_url } = await cloudinary.uploader.upload(profilePic, { folder: "profile_pics" });
-    const updatedUser =  await User.findByIdAndUpdate(req.user._id, { profilePic: secure_url }, { new: true }).select("-password");
-  res.status(200).json({ updatedUser, message: "Profile picture updated successfully" });
-  } catch (error) {
-    console.error(`Error updating profile picture: ${error.message}`);
-    res.status(500).json({ message: "Server error" });
-  }
+  const { secure_url } = await cloudinary.uploader.upload(profilePic, { folder: "profile_pics" });
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { profilePic: secure_url },
+    { new: true }
+  ).select("-password");
 
-}
+  res.status(200).json({ updatedUser, message: "Profile picture updated successfully" });
+});

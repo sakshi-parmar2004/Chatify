@@ -1,3 +1,4 @@
+import { log } from "../lib/logger.js";
 import aj from "../lib/arcjet.js";
 import { isSpoofedBot } from "@arcjet/inspect";
 
@@ -35,7 +36,7 @@ const createArcjetProtection = ({ failClosed = false } = {}) =>
     } catch (error) {
       // A bad key, quota exhaustion, or an outage would otherwise disable all
       // protection with nothing but a debug log to show for it.
-      console.error("Arcjet protection error:", error.message);
+      log.error({ err: error }, "arcjet failed open");
 
       if (failClosed) {
         return res.status(503).json({ message: "Service temporarily unavailable." });

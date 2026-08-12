@@ -1,3 +1,4 @@
+import { log } from "./logger.js";
 import express from 'express'
 import { Server } from "socket.io";
 import http from "http";
@@ -82,7 +83,7 @@ const announcePresence = async (userId, online) => {
       emitToUser(contactId, "presence", { userId, online });
     }
   } catch (error) {
-    console.error("Error announcing presence for", userId, "-", error.message);
+    log.error({ err: error, userId }, "presence announce failed");
   }
 };
 
@@ -118,7 +119,7 @@ io.on("connection", async (socket) => {
     if (sockets.size === 0) {
       // NTF-07 — stamped on the way out, so "last seen" is when they actually left
       void User.updateOne({ _id: userId }, { $set: { lastSeenAt: new Date() } }).catch(
-        (error) => console.error("Error stamping lastSeenAt:", error.message)
+        (error) => log.warn({ err: error, userId }, "lastSeenAt stamp failed")
       );
       void announcePresence(userId, false);
     }
@@ -160,7 +161,7 @@ io.on("connection", async (socket) => {
       });
     }
   } catch (error) {
-    console.error("Error preparing socket for", userId, "-", error.message);
+    log.error({ err: error, userId }, "socket setup failed");
   }
 });
 

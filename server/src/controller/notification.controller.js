@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import User from "../models/user.model.js";
 import { setMute } from "../lib/notifications.js";
 import { publicKey, isPushConfigured } from "../lib/push.js";
@@ -13,8 +14,7 @@ export const getPushConfig = (_req, res) => {
  * Idempotent per endpoint: re-subscribing the same browser replaces its keys
  * rather than accumulating duplicates, which is what a page reload does.
  */
-export const subscribeToPush = async (req, res) => {
-  try {
+export const subscribeToPush = asyncHandler(async (req, res) => {
     const { endpoint, keys } = req.body ?? {};
 
     if (typeof endpoint !== "string" || !/^https:\/\//.test(endpoint)) {
@@ -34,15 +34,10 @@ export const subscribeToPush = async (req, res) => {
     );
 
     res.status(201).json({ ok: true });
-  } catch (error) {
-    console.error("Error in subscribeToPush: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** DELETE /api/notifications/subscribe — revoking must actually stop it. */
-export const unsubscribeFromPush = async (req, res) => {
-  try {
+export const unsubscribeFromPush = asyncHandler(async (req, res) => {
     const { endpoint } = req.body ?? {};
     if (typeof endpoint !== "string") {
       return res.status(400).json({ message: "Invalid subscription." });
@@ -54,15 +49,10 @@ export const unsubscribeFromPush = async (req, res) => {
     );
 
     res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("Error in unsubscribeFromPush: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** PUT /api/notifications/do-not-disturb — NTF-05. */
-export const updateDoNotDisturb = async (req, res) => {
-  try {
+export const updateDoNotDisturb = asyncHandler(async (req, res) => {
     const { enabled, startMinute, endMinute, timezone } = req.body ?? {};
 
     if (typeof enabled !== "boolean") {
@@ -94,22 +84,13 @@ export const updateDoNotDisturb = async (req, res) => {
 
     await User.updateOne({ _id: req.user._id }, { $set: { doNotDisturb } });
     res.status(200).json({ doNotDisturb });
-  } catch (error) {
-    console.error("Error in updateDoNotDisturb: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** GET /api/notifications/do-not-disturb — so the UI can show why it is quiet. */
-export const getDoNotDisturb = async (req, res) => {
-  try {
+export const getDoNotDisturb = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id).select("doNotDisturb").lean();
     res.status(200).json({ doNotDisturb: user?.doNotDisturb ?? { enabled: false } });
-  } catch (error) {
-    console.error("Error in getDoNotDisturb: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * PUT /api/conversations/:id/mute — NTF-04.
@@ -117,8 +98,7 @@ export const getDoNotDisturb = async (req, res) => {
  * A duration rather than a boolean, so "mute for 8 hours" does not need a
  * scheduled job to undo it.
  */
-export const muteConversation = async (req, res) => {
-  try {
+export const muteConversation = asyncHandler(async (req, res) => {
     const { minutes } = req.body ?? {};
 
     if (minutes !== null && (!Number.isFinite(minutes) || minutes < 0)) {
@@ -131,8 +111,4 @@ export const muteConversation = async (req, res) => {
 
     await setMute(req.conversation._id, req.user._id, mutedUntil);
     res.status(200).json({ mutedUntil });
-  } catch (error) {
-    console.error("Error in muteConversation: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});

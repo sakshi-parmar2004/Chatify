@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import cloudinary from "../lib/cloudinary.js";
 import { env_variable } from "../lib/env.js";
 
@@ -49,8 +50,7 @@ export const MAX_BYTES = {
   file: 25 * 1024 * 1024,
 };
 
-export const createUploadSignature = async (req, res) => {
-  try {
+export const createUploadSignature = asyncHandler(async (req, res) => {
     const { kind, bytes } = req.body;
 
     if (!Object.hasOwn(RESOURCE_TYPES, kind)) {
@@ -85,8 +85,4 @@ export const createUploadSignature = async (req, res) => {
       cloudName: env_variable.CLOUDINARY_CLOUD_NAME,
       maxBytes: MAX_BYTES[kind],
     });
-  } catch (error) {
-    console.error("Error in createUploadSignature: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});

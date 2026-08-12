@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import mongoose from "mongoose";
 import cloudinary from "../lib/cloudinary.js";
 import Message, { MESSAGE_STATUS, UNREAD_STATUSES } from "../models/message.model.js";
@@ -7,21 +8,15 @@ import { validateImageDataUri } from "../lib/validateImage.js";
 import Conversation from "../models/conversation.model.js";
 import { findOrCreateDirectConversation } from "../lib/conversations.js";
 
-export const getAllContacts = async (req, res) => {
-  try {
+export const getAllContacts = asyncHandler(async (req, res) => {
     const loggedInUserId = req.user._id;
     const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
 
     res.status(200).json(filteredUsers);
-  } catch (error) {
-    console.error("Error in getAllContacts:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-};
+});
 
 
-export const getMessagesByUserId = async (req, res) => {
-  try {
+export const getMessagesByUserId = asyncHandler(async (req, res) => {
     const myId = req.user._id;
     const { id: userToChatId } = req.params;
 
@@ -38,15 +33,10 @@ export const getMessagesByUserId = async (req, res) => {
     }).sort({ createdAt: 1 }); // MongoDB gives no ordering guarantee without this
 
     res.status(200).json(messages);
-  } catch (error) {
-    console.error("Error in getMessages controller: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 
-export const sendMessage = async (req, res) => {
-  try {
+export const sendMessage = asyncHandler(async (req, res) => {
     const { text, image } = req.body;
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
@@ -118,14 +108,9 @@ export const sendMessage = async (req, res) => {
     }
 
     res.status(201).json(newMessage);
-  } catch (error) {
-    console.error("Error in sendMessage controller: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
-export const markConversationAsRead = async (req, res) => {
-  try {
+export const markConversationAsRead = asyncHandler(async (req, res) => {
     const myId = req.user._id;
     const { id: partnerId } = req.params;
 
@@ -156,14 +141,9 @@ export const markConversationAsRead = async (req, res) => {
     }
 
     res.status(200).json({ modifiedCount: result.modifiedCount });
-  } catch (error) {
-    console.error("Error in markConversationAsRead controller: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
-export const getChatPartners = async (req, res) => {
-  try {
+export const getChatPartners = asyncHandler(async (req, res) => {
     const loggedInUserId = req.user._id;
 
     // One pass over the user's messages resolves the partner, their last
@@ -223,8 +203,4 @@ export const getChatPartners = async (req, res) => {
     ]);
 
     res.status(200).json(chatPartners);
-  } catch (error) {
-    console.error("Error in getChatPartners: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});

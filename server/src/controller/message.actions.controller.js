@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import mongoose from "mongoose";
 import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
@@ -45,8 +46,7 @@ const loadMessage = async (req, res) => {
  * Editing only ever changes text. An edit that could add or swap an attachment
  * would let someone rewrite what a reply is quoting after the fact.
  */
-export const editMessage = async (req, res) => {
-  try {
+export const editMessage = asyncHandler(async (req, res) => {
     const message = await loadMessage(req, res);
     if (!message) return;
 
@@ -81,11 +81,7 @@ export const editMessage = async (req, res) => {
     emitToConversation(req.conversation, "messageUpdated", message.toObject());
 
     res.status(200).json(message);
-  } catch (error) {
-    console.error("Error in editMessage: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * DELETE /api/conversations/:id/messages/:messageId
@@ -95,8 +91,7 @@ export const editMessage = async (req, res) => {
  * attachment are cleared, so the content really is gone — what remains is the
  * fact that something was here.
  */
-export const deleteMessage = async (req, res) => {
-  try {
+export const deleteMessage = asyncHandler(async (req, res) => {
     const message = await loadMessage(req, res);
     if (!message) return;
 
@@ -136,11 +131,7 @@ export const deleteMessage = async (req, res) => {
     emitToConversation(req.conversation, "messageUpdated", message.toObject());
 
     res.status(200).json(message);
-  } catch (error) {
-    console.error("Error in deleteMessage: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 // Anything longer is not a reaction. Kept deliberately permissive about which
 // emoji rather than maintaining an allowlist that dates badly.
@@ -152,8 +143,7 @@ const MAX_EMOJI_LENGTH = 8;
  * Toggles. Sending the same emoji twice removes it, which makes a double-tap
  * idempotent rather than a double-count.
  */
-export const toggleReaction = async (req, res) => {
-  try {
+export const toggleReaction = asyncHandler(async (req, res) => {
     const message = await loadMessage(req, res);
     if (!message) return;
 
@@ -179,11 +169,7 @@ export const toggleReaction = async (req, res) => {
     emitToConversation(req.conversation, "messageUpdated", message.toObject());
 
     res.status(200).json(message);
-  } catch (error) {
-    console.error("Error in toggleReaction: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * GET /api/conversations/search?q=...&conversationId=...
@@ -191,8 +177,7 @@ export const toggleReaction = async (req, res) => {
  * MSG-07. Scoped to conversations the caller is in — always, and computed
  * server-side, so a crafted conversationId cannot widen it.
  */
-export const searchMessages = async (req, res) => {
-  try {
+export const searchMessages = asyncHandler(async (req, res) => {
     const myId = req.user._id;
     const q = String(req.query.q ?? "").trim();
     const { conversationId } = req.query;
@@ -224,8 +209,4 @@ export const searchMessages = async (req, res) => {
       .lean();
 
     res.status(200).json({ results });
-  } catch (error) {
-    console.error("Error in searchMessages: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});

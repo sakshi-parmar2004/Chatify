@@ -24,6 +24,7 @@ export const env_variable={
     VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: process.env.VAPID_SUBJECT,
+    LOG_LEVEL: process.env.LOG_LEVEL,
 }
 
 // Fail fast at boot rather than on the first request that needs a missing key.

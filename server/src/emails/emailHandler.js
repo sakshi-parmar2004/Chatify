@@ -1,3 +1,4 @@
+import { log } from "../lib/logger.js";
 import { Resend } from 'resend';
 import {env_variable} from '../lib/env.js';
 import {createWelcomeEmailTemplate} from './emailTemplate.js';
@@ -17,6 +18,6 @@ export const resendEmail = async (name,email) => {
   });
 
   if (error) {
-    console.error(`Error sending welcome email: ${error.message}`);
+    log.warn("welcome email failed");
   }
 };

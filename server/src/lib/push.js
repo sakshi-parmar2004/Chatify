@@ -1,3 +1,4 @@
+import { log } from "./logger.js";
 import webpush from "web-push";
 import User from "../models/user.model.js";
 import { env_variable } from "./env.js";
@@ -23,10 +24,7 @@ if (isConfigured) {
     env_variable.VAPID_PRIVATE_KEY
   );
 } else {
-  console.warn(
-    "Web push is not configured (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY). " +
-      "Notifications will be skipped."
-  );
+  log.warn("web push is not configured; notifications will be skipped");
 }
 
 export const isPushConfigured = () => isConfigured;
@@ -67,7 +65,7 @@ export const sendPushToUser = async (userId, payload, { sender = webpush } = {})
         if (error?.statusCode === 404 || error?.statusCode === 410) {
           dead.push(subscription.endpoint);
         } else {
-          console.error("Push failed:", error?.message);
+          log.warn({ err: error, statusCode: error?.statusCode }, "push delivery failed");
           dead.push(subscription.endpoint); // counted, pruned only past the limit
         }
       }

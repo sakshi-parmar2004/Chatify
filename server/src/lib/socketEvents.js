@@ -1,3 +1,4 @@
+import { log } from "./logger.js";
 import mongoose from "mongoose";
 import { consumeToken } from "./socketRateLimit.js";
 
@@ -72,7 +73,7 @@ export const registerInboundEvents = (socket, context) => {
         handle({ ...context, socket }, value);
       } catch (error) {
         // a broken handler must not take the connection down with it
-        console.error(`Error handling socket event "${name}":`, error.message);
+        log.error({ err: error, event: name, userId: context.userId }, "socket event failed");
       }
     });
   }

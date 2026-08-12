@@ -8,7 +8,7 @@ export const sendWelcomeEmail = async (name, email) => {
         await resendEmail(name, email);
     }
     catch (error) {
-        console.error(`Error sending welcome email: ${error.message}`);
+        
     }
  
 }

@@ -18,6 +18,8 @@ const TEST_ENV = {
   CLOUDINARY_API_SECRET: "test-secret",
   ARCJET_KEY: "ajkey_test",
   ARCJET_ENV: "development",
+  // 265 tests spraying JSON makes a real failure unfindable
+  LOG_LEVEL: "silent",
 };
 
 for (const [key, value] of Object.entries(TEST_ENV)) {

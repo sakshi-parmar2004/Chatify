@@ -1,3 +1,4 @@
+import { asyncHandler } from "../lib/asyncHandler.js";
 import mongoose from "mongoose";
 import Conversation, { CONVERSATION_TYPE } from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
@@ -67,8 +68,7 @@ const postSystemMessage = async (conversation, text) => {
  * The creator is the first admin. A group with no admin cannot be administered,
  * and there is no way back from that state.
  */
-export const createGroup = async (req, res) => {
-  try {
+export const createGroup = asyncHandler(async (req, res) => {
     const myId = req.user._id;
     const { name, participantIds } = req.body;
 
@@ -131,15 +131,10 @@ export const createGroup = async (req, res) => {
     }
 
     res.status(201).json(serializeConversation(conversation.toObject(), myId, { userById }));
-  } catch (error) {
-    console.error("Error in createGroup: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** PATCH /api/conversations/:id/group — rename or re-image. Admin only. */
-export const updateGroup = async (req, res) => {
-  try {
+export const updateGroup = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { name, image } = req.body;
     const update = {};
@@ -173,15 +168,10 @@ export const updateGroup = async (req, res) => {
     res.status(200).json(
       serializeConversation(result.conversation, req.user._id, { userById: result.userById })
     );
-  } catch (error) {
-    console.error("Error in updateGroup: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** POST /api/conversations/:id/participants — admin only. */
-export const addParticipants = async (req, res) => {
-  try {
+export const addParticipants = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { userIds } = req.body;
 
@@ -242,11 +232,7 @@ export const addParticipants = async (req, res) => {
     res.status(200).json(
       serializeConversation(result.conversation, req.user._id, { userById: result.userById })
     );
-  } catch (error) {
-    console.error("Error in addParticipants: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /**
  * DELETE /api/conversations/:id/participants/:userId
@@ -254,8 +240,7 @@ export const addParticipants = async (req, res) => {
  * Removing yourself is leaving, and needs no admin rights. Removing anyone else
  * does.
  */
-export const removeParticipant = async (req, res) => {
-  try {
+export const removeParticipant = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { userId } = req.params;
     const myId = req.user._id;
@@ -322,15 +307,10 @@ export const removeParticipant = async (req, res) => {
     }
 
     res.status(200).json({ removed: userId });
-  } catch (error) {
-    console.error("Error in removeParticipant: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** PUT /api/conversations/:id/admins/:userId — promote. Admin only. */
-export const promoteToAdmin = async (req, res) => {
-  try {
+export const promoteToAdmin = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { userId } = req.params;
 
@@ -354,15 +334,10 @@ export const promoteToAdmin = async (req, res) => {
     await broadcastConversation(conversation._id);
 
     res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("Error in promoteToAdmin: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** DELETE /api/conversations/:id/admins/:userId — demote. Admin only. */
-export const demoteAdmin = async (req, res) => {
-  try {
+export const demoteAdmin = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { userId } = req.params;
 
@@ -383,15 +358,10 @@ export const demoteAdmin = async (req, res) => {
     await broadcastConversation(conversation._id);
 
     res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("Error in demoteAdmin: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** PUT /api/conversations/:id/pins/:messageId — MSG-10. */
-export const togglePin = async (req, res) => {
-  try {
+export const togglePin = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const { messageId } = req.params;
 
@@ -419,15 +389,10 @@ export const togglePin = async (req, res) => {
 
     await broadcastConversation(conversation._id);
     res.status(200).json({ pinned: !pinned });
-  } catch (error) {
-    console.error("Error in togglePin: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
 
 /** GET /api/conversations/:id/media — MED-07, paginated. */
-export const listConversationMedia = async (req, res) => {
-  try {
+export const listConversationMedia = asyncHandler(async (req, res) => {
     const { conversation } = req;
     const limit = Math.min(Number(req.query.limit) || 30, 60);
     const before = req.query.before ? new Date(req.query.before) : null;
@@ -457,8 +422,4 @@ export const listConversationMedia = async (req, res) => {
       hasMore,
       nextCursor: items.length > 0 ? items.at(-1).createdAt : null,
     });
-  } catch (error) {
-    console.error("Error in listConversationMedia: ", error.message);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+});
