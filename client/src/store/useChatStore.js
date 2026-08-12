@@ -6,6 +6,25 @@ import { useAuthStore } from "./useAuthStore";
 const errorMessage = (error, fallback = "Something went wrong") =>
   error?.response?.data?.message || fallback;
 
+// A receipt is a watermark, not a list of ids. It has to apply to messages that
+// reach this client *after* the receipt did — a send still in flight, or an echo
+// from another tab — otherwise a receipt that overtakes its message strands that
+// bubble on the wrong tick forever.
+//
+// Optimistic messages are skipped deliberately: their createdAt comes from the
+// browser clock and must never be compared against a server timestamp.
+const applyReceipt = (message, receipts, authUserId) => {
+  if (message.isOptimistic || message.senderId !== authUserId) return message;
+
+  const { deliveredAt, readAt } = receipts[message.receiverId] ?? {};
+
+  if (readAt && message.createdAt <= readAt) return { ...message, status: "read" };
+  if (deliveredAt && message.status === "sent" && message.createdAt <= deliveredAt) {
+    return { ...message, status: "delivered" };
+  }
+  return message;
+};
+
 export const useChatStore = create((set, get) => ({
   allContacts: [],
   chats: [],
@@ -15,6 +34,10 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   isSoundEnabled: JSON.parse(localStorage.getItem("isSoundEnabled")) === true,
+  // kept outside `chats` so a sidebar refetch cannot clobber a live increment
+  unreadCounts: {},
+  // { [partnerId]: { deliveredAt, readAt } } — see applyReceipt above
+  receipts: {},
 
   toggleSound: () => {
     localStorage.setItem("isSoundEnabled", !get().isSoundEnabled);
@@ -22,7 +45,16 @@ export const useChatStore = create((set, get) => ({
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+
+  setSelectedUser: (selectedUser) => {
+    set({ selectedUser });
+
+    // opening a conversation is the read signal — but only if this tab is
+    // actually on screen. A chat opened in a background tab has not been read.
+    if (selectedUser && document.visibilityState === "visible") {
+      get().markConversationAsRead(selectedUser._id);
+    }
+  },
 
   getAllContacts: async () => {
     set({ isUsersLoading: true });
@@ -35,15 +67,23 @@ export const useChatStore = create((set, get) => ({
       set({ isUsersLoading: false });
     }
   },
-  getMyChatPartners: async () => {
-    set({ isUsersLoading: true });
+
+  // `silent` skips the loading flag so a background re-sync mid-conversation
+  // does not replace the sidebar with a skeleton
+  getMyChatPartners: async ({ silent = false } = {}) => {
+    if (!silent) set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/messages/chats");
-      set({ chats: res.data });
+      set({
+        chats: res.data,
+        unreadCounts: Object.fromEntries(
+          res.data.map((chat) => [chat._id, chat.unreadCount ?? 0])
+        ),
+      });
     } catch (error) {
-      toast.error(errorMessage(error, "Could not load chats"));
+      if (!silent) toast.error(errorMessage(error, "Could not load chats"));
     } finally {
-      set({ isUsersLoading: false });
+      if (!silent) set({ isUsersLoading: false });
     }
   },
 
@@ -51,7 +91,7 @@ export const useChatStore = create((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
-      set({ messages: res.data});
+      set({ messages: res.data });
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -72,6 +112,8 @@ export const useChatStore = create((set, get) => ({
       text: messageData.text,
       image: messageData.image,
       createdAt: new Date().toISOString(),
+      // client-only pseudo status; the server assigns sent or delivered
+      status: "sending",
       isOptimistic: true, // flag to identify optimistic messages (optional)
     };
     // immidiately update the ui by adding the message. Every update below uses
@@ -81,17 +123,22 @@ export const useChatStore = create((set, get) => ({
 
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      // swap the placeholder for the saved message, leaving anything else alone
-      set((state) => ({
-        messages: state.messages.map((message) =>
-          message._id === tempId ? res.data : message
-        ),
-        // a first message to a contact makes them a chat partner; add them now
-        // rather than waiting for the sidebar to remount
-        chats: state.chats.some((chat) => chat._id === selectedUser._id)
-          ? state.chats
-          : [...state.chats, selectedUser],
-      }));
+
+      set((state) => {
+        // the server now echoes our own message back to us, and that echo can
+        // land before this response does — drop it so the swap below cannot
+        // leave two bubbles with the same _id
+        const withoutEcho = state.messages.filter((message) => message._id !== res.data._id);
+        const saved = applyReceipt(res.data, state.receipts, authUser._id);
+
+        return {
+          // swap the placeholder for the saved message, leaving anything else alone
+          messages: withoutEcho.map((message) => (message._id === tempId ? saved : message)),
+        };
+      });
+
+      // a first message to a contact makes them a chat partner
+      get().applyMessageToChats(res.data, selectedUser._id);
     } catch (error) {
       // remove only the optimistic message on failure
       set((state) => ({
@@ -101,18 +148,83 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  subscribeToMessages: () => {
-    const { selectedUser } = get();
-    if (!selectedUser) return;
+  // Keeps the sidebar preview and ordering in step with live traffic. Falls back
+  // to a refetch when the partner is not in the list yet — the server is the
+  // authority on both ordering and counts, and the store owns the fetching.
+  applyMessageToChats: (message, partnerId) => {
+    const existing = get().chats.find((chat) => chat._id === partnerId);
+    if (!existing) {
+      get().getMyChatPartners({ silent: true });
+      return;
+    }
 
+    const lastMessage = {
+      text: message.text,
+      image: message.image,
+      createdAt: message.createdAt,
+      senderId: message.senderId,
+      status: message.status,
+    };
+
+    set((state) => ({
+      chats: [
+        { ...existing, lastMessage },
+        ...state.chats.filter((chat) => chat._id !== partnerId),
+      ],
+    }));
+  },
+
+  markConversationAsRead: async (partnerId) => {
+    const { unreadCounts, messages } = get();
+    const hasUnread =
+      (unreadCounts[partnerId] ?? 0) > 0 ||
+      messages.some((message) => message.senderId === partnerId && message.status !== "read");
+
+    // this fires on every conversation open; most of those are no-ops
+    if (!hasUnread) return;
+
+    // clear locally first. The socket echo would do it anyway, but this tab
+    // should not wait a round trip to drop its own badge.
+    set((state) => ({
+      unreadCounts: { ...state.unreadCounts, [partnerId]: 0 },
+      messages: state.messages.map((message) =>
+        message.senderId === partnerId ? { ...message, status: "read" } : message
+      ),
+    }));
+
+    try {
+      await axiosInstance.patch(`/messages/read/${partnerId}`);
+    } catch {
+      // a failed receipt is not worth a toast, but the badge must not stay
+      // wrongly cleared — let the server correct us
+      get().getMyChatPartners({ silent: true });
+    }
+  },
+
+  // One listener for the whole session, not one per open conversation: unread
+  // badges have to update for conversations that are not currently open.
+  subscribeToInbox: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
+      const { authUser } = useAuthStore.getState();
+      if (!authUser) return;
 
-      set((state) => ({ messages: [...state.messages, newMessage] }));
+      const isMine = newMessage.senderId === authUser._id;
+      const partnerId = isMine ? newMessage.receiverId : newMessage.senderId;
+      const isOpen = get().selectedUser?._id === partnerId;
+
+      if (isOpen && !get().messages.some((message) => message._id === newMessage._id)) {
+        set((state) => ({
+          messages: [...state.messages, applyReceipt(newMessage, state.receipts, authUser._id)],
+        }));
+      }
+
+      get().applyMessageToChats(newMessage, partnerId);
+
+      // our own message echoed to another tab: never a badge, never a sound
+      if (isMine) return;
 
       // read the current value rather than the one captured at subscribe time,
       // so toggling sound takes effect immediately
@@ -122,13 +234,73 @@ export const useChatStore = create((set, get) => ({
         notificationSound.currentTime = 0; // reset to start
         notificationSound.play().catch(() => {});
       }
+
+      if (isOpen && document.visibilityState === "visible") {
+        get().markConversationAsRead(partnerId);
+      } else {
+        set((state) => ({
+          unreadCounts: {
+            ...state.unreadCounts,
+            [partnerId]: (state.unreadCounts[partnerId] ?? 0) + 1,
+          },
+        }));
+      }
+    });
+
+    socket.on("messagesDelivered", ({ partnerId, deliveredAt }) => {
+      const { authUser } = useAuthStore.getState();
+      if (!authUser) return;
+
+      set((state) => {
+        const receipts = {
+          ...state.receipts,
+          [partnerId]: { ...state.receipts[partnerId], deliveredAt },
+        };
+        return {
+          receipts,
+          messages: state.messages.map((message) =>
+            applyReceipt(message, receipts, authUser._id)
+          ),
+        };
+      });
+    });
+
+    socket.on("messagesRead", ({ partnerId, readAt }) => {
+      const { authUser } = useAuthStore.getState();
+      if (!authUser) return;
+
+      set((state) => {
+        const receipts = {
+          ...state.receipts,
+          [partnerId]: { ...state.receipts[partnerId], readAt },
+        };
+        return {
+          receipts,
+          messages: state.messages.map((message) =>
+            applyReceipt(message, receipts, authUser._id)
+          ),
+        };
+      });
+    });
+
+    // another of our own tabs read this conversation
+    socket.on("conversationRead", ({ partnerId }) => {
+      set((state) => ({
+        unreadCounts: { ...state.unreadCounts, [partnerId]: 0 },
+        messages: state.messages.map((message) =>
+          message.senderId === partnerId ? { ...message, status: "read" } : message
+        ),
+      }));
     });
   },
 
-  unsubscribeFromMessages: () => {
+  unsubscribeFromInbox: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
     socket.off("newMessage");
+    socket.off("messagesDelivered");
+    socket.off("messagesRead");
+    socket.off("conversationRead");
   },
 }));

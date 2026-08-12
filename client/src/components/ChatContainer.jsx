@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { CheckIcon, CheckCheckIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import ChatHeader from "./ChatHeader";
@@ -6,14 +7,37 @@ import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessageInput from "./MessageInput";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
 
+// These sit on the cyan own-message bubble, so "read" is signalled by a lighter,
+// full-opacity tick rather than the usual blue, which would disappear into the
+// background. The label is not decoration — tick shape alone is not accessible.
+const MESSAGE_STATUS_ICONS = {
+  sending: { Icon: CheckIcon, className: "opacity-40", label: "Sending" },
+  sent: { Icon: CheckIcon, className: "opacity-70", label: "Sent" },
+  delivered: { Icon: CheckCheckIcon, className: "opacity-70", label: "Delivered" },
+  read: { Icon: CheckCheckIcon, className: "text-sky-200", label: "Read" },
+};
+
+function MessageStatusIcon({ status }) {
+  const entry = MESSAGE_STATUS_ICONS[status];
+  // messages written before receipts existed carry no status
+  if (!entry) return null;
+
+  const { Icon, className, label } = entry;
+  return (
+    <>
+      <Icon className={`size-3.5 shrink-0 ${className}`} aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </>
+  );
+}
+
 function ChatContainer() {
   const {
     selectedUser,
     getMessagesByUserId,
     messages,
     isMessagesLoading,
-    subscribeToMessages,
-    unsubscribeFromMessages,
+    markConversationAsRead,
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messagesContainerRef = useRef(null);
@@ -21,11 +45,24 @@ function ChatContainer() {
 
   useEffect(() => {
     getMessagesByUserId(selectedUser._id);
-    subscribeToMessages();
+  }, [selectedUser, getMessagesByUserId]);
 
-    // clean up
-    return () => unsubscribeFromMessages();
-  }, [selectedUser, getMessagesByUserId, subscribeToMessages, unsubscribeFromMessages]);
+  // A conversation left open in a background tab has not been read by anyone,
+  // so the receipt waits until the tab is actually on screen.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") markConversationAsRead(selectedUser._id);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    handleVisibilityChange();
+
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    // `messages` is a deliberate dependency, not an oversight: setSelectedUser
+    // fires the same call before the history has loaded, and it can only see the
+    // sidebar's unread count — which is missing when the chat was opened from
+    // the Contacts tab. Re-running once the messages arrive is the safety net.
+  }, [selectedUser, markConversationAsRead, messages]);
 
   // opening a different conversation should always land at the newest message
   useEffect(() => {
@@ -79,11 +116,16 @@ function ChatContainer() {
                     />
                   )}
                   {msg.text && <p className="mt-2">{msg.text}</p>}
-                  <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
-                    {new Date(msg.createdAt).toLocaleTimeString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  {/* the opacity sits on the time, not the row, so a read tick
+                      can reach full strength against the cyan bubble */}
+                  <p className="text-xs mt-1 flex items-center gap-1">
+                    <span className="opacity-75">
+                      {new Date(msg.createdAt).toLocaleTimeString(undefined, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    {msg.senderId === authUser._id && <MessageStatusIcon status={msg.status} />}
                   </p>
                 </div>
               </div>

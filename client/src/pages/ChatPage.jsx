@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
 
 import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
 import ProfileHeader from "../components/ProfileHeader";
@@ -9,7 +11,19 @@ import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 
 function ChatPage() {
-  const { activeTab, selectedUser } = useChatStore();
+  const { activeTab, selectedUser, subscribeToInbox, unsubscribeFromInbox } = useChatStore();
+  const { socket } = useAuthStore();
+
+  // One inbox listener for the whole authenticated session. Unread badges have
+  // to update for conversations that are not open, which the old per-
+  // conversation subscription in ChatContainer could not do. Keyed on the socket
+  // instance so a logout/login cycle re-subscribes to the new one.
+  useEffect(() => {
+    if (!socket) return;
+
+    subscribeToInbox();
+    return () => unsubscribeFromInbox();
+  }, [socket, subscribeToInbox, unsubscribeFromInbox]);
 
   return (
     // Full-bleed and full-height on phones; a fixed card once there is room for
