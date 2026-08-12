@@ -1,6 +1,6 @@
 # Improvements
 
-> **Status: 22 done, 1 partly done, 6 open.** Each heading carries its state.
+> **Status: 23 done, 2 partly done, 4 open.** Each heading carries its state.
 > The open items are the ones that need a product decision, add a dependency, or
 > are projects rather than edits — they were deliberately not bundled into the
 > bug-fix pass. See [Still open](#still-open) at the end.
@@ -172,7 +172,7 @@ Every message the user has ever sent or received is pulled into Node, mapped, an
 
 ---
 
-## BE-I-05 **P2** Paginate conversation history — ⬜ Open
+## BE-I-05 **P2** Paginate conversation history — ✅ Done
 
 **File:** [server/src/controller/message.controller.js:22](server/src/controller/message.controller.js#L22)
 
@@ -285,7 +285,7 @@ The dev API base URL is hardcoded to `http://localhost:8000` in two separate pla
 
 ---
 
-## FE-I-04 **P2** The message list has no windowing or pagination — ⬜ Open
+## FE-I-04 **P2** The message list has no windowing or pagination — 🟡 Partly done
 
 **File:** [client/src/components/ChatContainer.jsx:44](client/src/components/ChatContainer.jsx#L44)
 

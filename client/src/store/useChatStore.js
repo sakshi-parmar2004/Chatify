@@ -58,6 +58,8 @@ export const useChatStore = create((set, get) => ({
       messages: [],
       hasMoreMessages: false,
       oldestCursor: null,
+      // a quote belongs to the conversation it was started in
+      replyTarget: null,
     });
 
     // The typing throttle is per-store, not per-conversation, so without this
@@ -219,6 +221,7 @@ export const useChatStore = create((set, get) => ({
       });
 
       get().applyMessageToConversations(res.data);
+      set({ replyTarget: null });
     } catch (error) {
       set((state) => ({
         messages: state.messages.filter((message) => message._id !== tempId),
@@ -252,6 +255,99 @@ export const useChatStore = create((set, get) => ({
         ...state.conversations.filter((c) => c._id !== message.conversationId),
       ],
     }));
+  },
+
+  // MSG-05 — the message the composer is currently quoting.
+  replyTarget: null,
+  setReplyTarget: (message) => set({ replyTarget: message }),
+
+  // MSG-04
+  editMessage: async (messageId, text) => {
+    const { selectedConversation } = get();
+    if (!selectedConversation) return;
+
+    try {
+      const res = await axiosInstance.patch(
+        `/conversations/${selectedConversation._id}/messages/${messageId}`,
+        { text }
+      );
+      get().replaceMessage(res.data);
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not edit that message"));
+    }
+  },
+
+  deleteMessage: async (messageId) => {
+    const { selectedConversation } = get();
+    if (!selectedConversation) return;
+
+    try {
+      const res = await axiosInstance.delete(
+        `/conversations/${selectedConversation._id}/messages/${messageId}`
+      );
+      get().replaceMessage(res.data);
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not delete that message"));
+    }
+  },
+
+  // MSG-06. Applied optimistically because a reaction that lags feels broken,
+  // and the server response replaces it either way.
+  toggleReaction: async (messageId, emoji) => {
+    const { selectedConversation } = get();
+    const { authUser } = useAuthStore.getState();
+    if (!selectedConversation) return;
+
+    set((state) => ({
+      messages: state.messages.map((message) => {
+        if (message._id !== messageId) return message;
+
+        const mine = (message.reactions ?? []).findIndex(
+          (reaction) => reaction.userId === authUser._id && reaction.emoji === emoji
+        );
+        const reactions =
+          mine >= 0
+            ? message.reactions.filter((_, index) => index !== mine)
+            : [...(message.reactions ?? []), { emoji, userId: authUser._id }];
+
+        return { ...message, reactions };
+      }),
+    }));
+
+    try {
+      const res = await axiosInstance.put(
+        `/conversations/${selectedConversation._id}/messages/${messageId}/reactions`,
+        { emoji }
+      );
+      get().replaceMessage(res.data);
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not react"));
+      get().getMessages(selectedConversation._id);
+    }
+  },
+
+  replaceMessage: (updated) => {
+    set((state) => ({
+      messages: state.messages.map((message) =>
+        message._id === updated._id ? updated : message
+      ),
+    }));
+  },
+
+  // MSG-07
+  searchMessages: async (query, { conversationId } = {}) => {
+    if (!query || query.trim().length < 2) return [];
+
+    try {
+      const params = new URLSearchParams({ q: query.trim() });
+      if (conversationId) params.set("conversationId", conversationId);
+
+      const res = await axiosInstance.get(`/conversations/search?${params}`);
+      return res.data.results;
+    } catch (error) {
+      toast.error(errorMessage(error, "Search failed"));
+      return [];
+    }
   },
 
   markConversationAsRead: async (conversationId) => {

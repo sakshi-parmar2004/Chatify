@@ -1,6 +1,6 @@
 # Chatify — Product Requirements
 
-> **Status: 8 of 34 shipped, across 6 phases.** Phases 0 and 1 are complete.
+> **Status: 13 of 34 shipped, across 6 phases.** Phases 0, 1 and 2 are complete.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -397,7 +397,7 @@ to prove that contract with.
 
 **Depends on** `PLT-01`, `X-05`
 
-**Status** Phase 2 · ⬜ Open — see [`DEC-08`](#dec-08--delete-semantics)
+**Status** Phase 2 · ✅ Shipped — see [`DEC-08`](#dec-08--delete-semantics)
 
 ### MSG-05 — Reply and quote — Phase 2
 
@@ -415,7 +415,7 @@ later.
 
 **Depends on** `PLT-01`, `MSG-04`, `MSG-08`
 
-**Status** Phase 2 · ⬜ Open
+**Status** Phase 2 · ✅ Shipped
 
 ### MSG-06 — Reactions — Phase 2
 
@@ -434,7 +434,7 @@ low-content replies — which makes every other list shorter.
 
 **Depends on** `PLT-01`
 
-**Status** Phase 2 · ⬜ Open
+**Status** Phase 2 · ✅ Shipped
 
 ### MSG-07 — Message search — Phase 2
 
@@ -452,7 +452,7 @@ worth having.
 
 **Depends on** `PLT-01`, `MSG-08`
 
-**Status** Phase 2 · ⬜ Open — see [`DEC-10`](#dec-10--search-via-mongo-text)
+**Status** Phase 2 · ✅ Shipped — see [`DEC-10`](#dec-10--search-via-mongo-text)
 
 ### MSG-08 — Conversation history — Phase 2
 
@@ -471,7 +471,7 @@ half; the engineering half is already specced.
 
 **Depends on** `BE-I-05`, `FE-I-04` — see [improvements.md](../../improvements.md)
 
-**Status** Phase 2 · ⬜ Open
+**Status** Phase 2 · ✅ Shipped
 
 ### MSG-09 — Link previews — Phase 3
 
@@ -1007,7 +1007,9 @@ endpoint is also a new abuse surface and needs its own rate limit.
 **Question** Hard delete, tombstone, or hide-for-me?
 
 **Recommendation — tombstone, with delete-for-everyone inside a bounded window** (start at
-one hour) and delete-for-me as a client-side hide thereafter.
+one hour) and delete-for-me as a client-side hide thereafter. **Shipped at one hour**, which
+answers open question 2: long enough for the "wrong person" and "spotted a typo" cases,
+short enough that history stays trustworthy. A group admin may delete at any age.
 
 **Consequence** Deleted content occupies rows indefinitely. Accepted: hard deletion breaks
 reply references ([`MSG-05`](#msg-05--reply-and-quote--phase-2)) and punches holes in
@@ -1063,7 +1065,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 |---|---|---|---|
 | **0 — Receipts and the inbound channel** ✅ | `MSG-01`, `MSG-02`, `PLT-03`, `MSG-03`, `PLT-02` — all shipped | The inbound socket surface and the global listener that every later phase assumes | `X-03` for the new endpoints |
 | **1 — Conversation migration** ✅ | `PLT-01`, `PLT-04` — shipped; contract step held | Literally everything below | Backfill verified by count; rollback rehearsed |
-| **2 — Message polish** | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` | The conversation stops being a flat log | `X-05` schemas for all new bodies |
+| **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** | `MED-01`–`MED-06`, `MSG-09` | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
 | **4 — Groups** | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` | The second persona | `DEC-03` cursor migration complete |
 | **5 — Notifications** | `NTF-01`–`NTF-07`, `PLT-05` | Chatify works without a tab open | `NTF-04` before any push ships |
@@ -1135,10 +1137,10 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `MSG-01` | Read receipts | 0 | ✅ | `PLT-03` |
 | `MSG-02` | Unread badges | 0 | ✅ | `MSG-01`, `PLT-03` |
 | `MSG-03` | Typing indicators | 0 | ✅ | `PLT-02` |
-| `MSG-04` | Edit and delete | 2 | ⬜ | `PLT-01`, `X-05` |
-| `MSG-05` | Reply and quote | 2 | ⬜ | `PLT-01`, `MSG-04`, `MSG-08` |
-| `MSG-06` | Reactions | 2 | ⬜ | `PLT-01` |
-| `MSG-07` | Message search | 2 | ⬜ | `PLT-01`, `MSG-08` |
+| `MSG-04` | Edit and delete | 2 | ✅ | `PLT-01`, `X-05` |
+| `MSG-05` | Reply and quote | 2 | ✅ | `PLT-01`, `MSG-04`, `MSG-08` |
+| `MSG-06` | Reactions | 2 | ✅ | `PLT-01` |
+| `MSG-07` | Message search | 2 | ✅ | `PLT-01`, `MSG-08` |
 | `MSG-08` | Conversation history | 2 | ✅ | `BE-I-05`, `FE-I-04` |
 | `MSG-09` | Link previews | 3 | ⬜ | `PLT-01` |
 | `MSG-10` | Pin a message | 4 | ⬜ | `PLT-01`, `GRP-02` |

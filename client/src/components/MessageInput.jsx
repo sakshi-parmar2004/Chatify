@@ -11,7 +11,8 @@ function MessageInput() {
 
   const fileInputRef = useRef(null);
 
-  const { sendMessage, isSoundEnabled, emitTyping, emitStopTyping } = useChatStore();
+  const { sendMessage, isSoundEnabled, emitTyping, emitStopTyping, replyTarget, setReplyTarget } =
+    useChatStore();
 
   // leaving the conversation mid-sentence should not leave the other side
   // watching an indicator that never resolves
@@ -28,6 +29,8 @@ function MessageInput() {
     sendMessage({
       text: text.trim(),
       image: imagePreview,
+      // MSG-05 — the server takes the snapshot; this is only the pointer
+      ...(replyTarget ? { replyTo: replyTarget._id } : {}),
     });
     setText("");
     setImagePreview("");
@@ -63,6 +66,25 @@ function MessageInput() {
 
   return (
     <div className="p-3 sm:p-4 border-t border-slate-700/50 shrink-0">
+      {replyTarget && (
+        <div className="max-w-3xl mx-auto mb-2 flex items-center gap-2 rounded-lg bg-slate-800/60 border-l-2 border-cyan-500 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-cyan-400">Replying to</p>
+            <p className="text-sm text-slate-300 truncate">
+              {replyTarget.text || (replyTarget.image || replyTarget.attachment ? "Attachment" : "")}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Cancel reply"
+            onClick={() => setReplyTarget(null)}
+            className="shrink-0 text-slate-400 hover:text-slate-200"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {imagePreview && (
         <div className="max-w-3xl mx-auto mb-3 flex items-center">
           <div className="relative">
