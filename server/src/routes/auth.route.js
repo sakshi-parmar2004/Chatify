@@ -5,11 +5,11 @@ import { arcjetProtection } from "../middleware/arcjet.middleware.js";
 
 const authRouter = express.Router();
 
-authRouter.get("/test",arcjetProtection, (req,res)=>
-{
-  res.status(200).json({message:"hello"})
-}
-);
+// authRouter.get("/test",arcjetProtection, (req,res)=>
+// {
+//   res.status(200).json({message:"hello"})
+// }
+// );
 authRouter.post("/login",arcjetProtection,loginUser); 
 
 authRouter.post("/register", registerUser); 
