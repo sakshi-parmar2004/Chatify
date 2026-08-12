@@ -352,19 +352,24 @@ Ten items were deliberately left out of the bug-fix pass. None is blocked — ea
 either a project in its own right, adds a dependency, or changes behaviour in a way
 that should be decided rather than assumed.
 
-| ID | Item | Why it was not bundled in |
-|---|---|---|
-| **X-03** | Automated tests | The largest remaining gap, and the one most worth doing next. A real suite is its own piece of work, not a rider on a fix commit. |
-| **X-04** | CI pipeline | Depends on X-03 to be worth much. |
-| **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. |
-| **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. |
-| **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. |
-| **BE-I-07** | Structured logging (pino) | Adds a dependency and touches every log line. The noisiest offenders were cleaned up meanwhile: per-connection socket logs that printed user names and ids are gone, and `console.log` on error paths is now `console.error`. |
-| **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. |
-| **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. |
-| **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. |
-| **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. |
+The **Blocks** column names the roadmap work that cannot proceed without the item. Those
+IDs live in [docs/prd/chatify-prd.md](docs/prd/chatify-prd.md), which owns product
+capability; this file owns hardening of what already exists.
+
+| ID | Item | Why it was not bundled in | Blocks |
+|---|---|---|---|
+| **X-03** | Automated tests | The largest remaining gap, and the one most worth doing next. A real suite is its own piece of work, not a rider on a fix commit. | Every phase — and `PLT-01`, which is not a safe migration without it |
+| **X-04** | CI pipeline | Depends on X-03 to be worth much. | — |
+| **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. | `PLT-02`, `MSG-04`, `MED-01` |
+| **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. | `MSG-08` |
+| **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. | — |
+| **BE-I-07** | Structured logging (pino) | Adds a dependency and touches every log line. The noisiest offenders were cleaned up meanwhile: per-connection socket logs that printed user names and ids are gone, and `console.log` on error paths is now `console.error`. | — |
+| **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. | — |
+| **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. | `MSG-08` |
+| **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. | `MED-04`, `NTF-06` |
+| **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. | — |
 
 Recommended next step: **X-03**. A Vitest + Supertest suite covering the auth flow and
 the message round trip would have caught BE-01, BE-02, BE-05, and BE-11 on its own, and
-it is what makes the rest of this list safe to work through.
+it is what makes the rest of this list safe to work through. It is now also a gate on
+`PLT-01`, the conversation-model migration.

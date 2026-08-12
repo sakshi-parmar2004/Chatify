@@ -82,8 +82,10 @@ Actions: `checkAuth`, `signup`, `login`, `logout`, `updateProfile`, `connectSock
 | `selectedUser` | Who you are talking to, or `null` |
 | `activeTab` | `"chats"` or `"contacts"` |
 | `isSoundEnabled` | Persisted to `localStorage` |
+| `unreadCounts` | `{ [partnerId]: number }`. Kept outside `chats` so a sidebar refetch cannot clobber a live increment. |
+| `receipts` | `{ [partnerId]: { deliveredAt, readAt } }` — see [Read receipts](#read-receipts) |
 
-Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `subscribeToMessages`, `unsubscribeFromMessages`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
+Actions: `getAllContacts`, `getMyChatPartners`, `getMessagesByUserId`, `sendMessage`, `applyMessageToChats`, `markConversationAsRead`, `subscribeToInbox`, `unsubscribeFromInbox`, `setSelectedUser`, `setActiveTab`, `toggleSound`.
 
 `useChatStore` reaches into `useAuthStore` via `useAuthStore.getState()` for the socket and the current user id — a one-way dependency. Keep it that way: `useAuthStore` must not import `useChatStore`.
 
@@ -98,9 +100,21 @@ On mount, `App.jsx` calls `checkAuth()`, which hits `/auth/get-user` to restore 
 `connectSocket()` runs after a successful `checkAuth`, `login`, or `signup`. The server pushes:
 
 - **`getOnlineUsers`** — an array of connected user ids, handled in `useAuthStore` and read by the avatar indicators
-- **`newMessage`** — appended to `messages` if it came from the selected user, subscribed per-conversation in `ChatContainer`
+- **`newMessage`** — the message document, for any conversation. Also echoed back to the sender's own tabs.
+- **`messagesDelivered`** / **`messagesRead`** — receipt watermarks for messages *you* sent
+- **`conversationRead`** — another of your own tabs read a conversation; clear its badge
 
-`ChatContainer` subscribes on mount and unsubscribes on cleanup, so the listener is scoped to the open conversation. A user may have several sockets open at once (multiple tabs), and the server pushes to all of them.
+**There is one inbox listener for the whole session**, subscribed in `ChatPage` and owned by `useChatStore` (`subscribeToInbox` / `unsubscribeFromInbox`). It is deliberately *not* per-conversation: unread badges have to update for chats that are not open, and a per-conversation listener discards exactly those messages. `ChatContainer` no longer subscribes to anything.
+
+A user may have several sockets open at once (multiple tabs), and the server pushes to all of them — so every handler is written to be idempotent, and `newMessage` dedupes on `_id`.
+
+### Read receipts
+
+Receipts are **watermarks, not id lists**. `receipts[partnerId]` holds `{ deliveredAt, readAt }`, and `applyReceipt` re-applies them at every point a message enters state. This is what makes a receipt that overtakes its own message harmless — an id list could only patch messages already in the store, so a receipt arriving while a send is still in flight would strand that bubble on the wrong tick permanently.
+
+Optimistic messages are skipped by `applyReceipt` on purpose: their `createdAt` comes from the browser clock and must never be compared against a server timestamp.
+
+A conversation is marked read when it is **open and the tab is visible** — not on scroll. `ChatContainer` re-checks on `visibilitychange`.
 
 ### API base URL
 
@@ -145,6 +159,8 @@ Audio playback is wrapped in `.catch()` because browsers block it until the user
 
 The ten frontend defects recorded in [bugs.md](../bugs.md) have been fixed. Remaining frontend work is tracked in [improvements.md](../improvements.md); the notable open items:
 
-- **FE-I-06** — the chat shell is desktop-only, with a fixed height and no breakpoint handling
 - **FE-I-04** — the message list renders every message with no windowing
+- **FE-I-07** — audio objects are constructed at module scope, so rapid playback clips
 - **FE-I-10** — only two lint rules are enabled; `correctness` and `react-hooks` are off
+
+Planned features live in [docs/prd/chatify-prd.md](../docs/prd/chatify-prd.md).

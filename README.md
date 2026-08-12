@@ -6,6 +6,8 @@ A real-time one-to-one chat application. React + Vite on the front end, Express 
 
 - **Email + password auth** with bcrypt hashing and JWTs stored in `httpOnly` cookies
 - **One-to-one messaging** with text and image attachments
+- **Read receipts** — sent, delivered and read states on every message you send
+- **Unread badges** — per-conversation counts, with a last-message preview and most-recent-first ordering
 - **Live presence** — online/offline indicators pushed over Socket.IO
 - **Contacts and chats tabs** — browse all users, or just the ones you've talked to
 - **Profile pictures** uploaded to Cloudinary
@@ -159,9 +161,10 @@ All message routes require authentication and pass through Arcjet.
 | Method | Endpoint | Body | Description |
 |---|---|---|---|
 | `GET` | `/contacts` | — | All users except yourself. |
-| `GET` | `/chats` | — | Users you have exchanged messages with. |
+| `GET` | `/chats` | — | Users you have exchanged messages with, most recent first. Each carries `unreadCount` and a `lastMessage` summary alongside the user fields. |
 | `GET` | `/:id` | — | The full conversation between you and user `:id`. |
 | `POST` | `/send/:id` | `{ text?, image? }` | Send a message. At least one of `text` or `image` is required; `image` is a base64 data URI uploaded to Cloudinary. |
+| `PATCH` | `/read/:id` | — | Mark every message from user `:id` to you as read. Returns `{ modifiedCount }`. Only ever affects messages addressed to the caller. |
 
 ### Socket.IO events
 
@@ -170,7 +173,16 @@ The socket handshake authenticates using the same `token` cookie.
 | Event | Direction | Payload | Description |
 |---|---|---|---|
 | `getOnlineUsers` | server → client | `string[]` of user ids | Broadcast whenever anyone connects or disconnects. |
-| `newMessage` | server → client | message document | Delivered to the recipient when a message is sent. **See note below.** |
+| `newMessage` | server → client | message document | Sent to the recipient's sockets **and echoed to the sender's own**, so a second tab sees its outgoing messages too. The originating tab dedupes on `_id`. |
+| `messagesDelivered` | server → client | `{ partnerId, deliveredAt }` | Sent to the original sender when the recipient reconnects and their pending messages flush to `delivered`. |
+| `messagesRead` | server → client | `{ partnerId, readAt }` | Sent to the original sender when the recipient reads the conversation. `partnerId` is the reader. |
+| `conversationRead` | server → client | `{ partnerId, readAt }` | Sent to the reader's *own* other sockets so every tab clears the unread badge. `partnerId` is the sender they read. |
+
+There are no client → server events. Marking a conversation read goes over REST
+(`PATCH /api/messages/read/:id`) so it inherits the Arcjet and auth middleware.
+
+`deliveredAt` and `readAt` are watermarks, not lists of message ids: the client applies them
+to every message older than the timestamp, including ones that arrive after the receipt did.
 
 ## Data models
 
@@ -191,8 +203,12 @@ The socket handshake authenticates using the same `token` cookie.
 | `receiverId` | ObjectId → User | Required |
 | `text` | String | Trimmed, max 2000 characters |
 | `image` | String | Cloudinary URL |
+| `status` | String | `sent` \| `delivered` \| `read`, defaults to `sent`. Monotonic — never moves backwards. `delivered` means it reached a live client, not that anyone saw it. |
 
 Both include `createdAt` / `updatedAt` timestamps.
+
+Messages written before `status` existed have no value for it. They are excluded from unread
+counts by design, so old conversations do not light up as unread.
 
 ## Deployment
 
@@ -205,14 +221,21 @@ npm start
 
 Set every variable from the [Environment variables](#environment-variables) section on your host, with `NODE_ENV=production` and `CLIENT_URL` pointing at your deployed URL.
 
+## Roadmap
+
+Where the product is going — features, phasing and the decisions behind the order — is in
+[docs/prd/chatify-prd.md](docs/prd/chatify-prd.md). Engineering hardening of what already
+exists stays in [improvements.md](improvements.md); the two do not overlap, and the PRD
+explains the split.
+
 ## Known limitations
 
 The 23 defects recorded in [bugs.md](bugs.md) have been fixed. What remains, tracked in [improvements.md](improvements.md):
 
 - **No automated tests.** `npm test` in `server/` is still the placeholder that exits with an error. This is the largest remaining gap.
 - **Conversation history is unpaginated.** Opening a chat loads every message in it and renders them all — fine for small conversations, not for long ones.
-- **The chat layout is desktop-only.** The shell is a fixed-height, two-pane layout with no breakpoint handling, so it is unusable on a phone. The auth pages are responsive.
 - **Request bodies are validated by hand**, so types are not checked as rigorously as a schema validator would.
+- **Presence is a full-roster broadcast.** Every connect and disconnect sends the complete list of online user ids to every client, which is both wasteful and more disclosure than it needs to be. Tracked as `DEC-05` in the PRD.
 
 ## License
 
