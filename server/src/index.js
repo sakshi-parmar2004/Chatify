@@ -1,15 +1,22 @@
-import express from "express";
+import express from 'express'
 import cookieParser from "cookie-parser";
 import authRouter from "./routes/auth.route.js";
 import messageRouter from "./routes/message.route.js";
 import path from "path";
 import connectDB from "./lib/db.js";
 import {env_variable} from "./lib/env.js";
+import cors from 'cors';
+import { app,server } from "./lib/socket.js";
+
+
 const PORT = env_variable.PORT || 8000;
-const app = express();
 app.disable("x-powered-by");
-app.use(express.json());
+app.use(express.json({limit:"5mb"}));
 app.use(cookieParser()); // Parse cookies from incoming requests so req.cookies works
+app.use(cors({
+  origin: env_variable.CLIENT_URL,
+  credentials: true
+}));
 
 const __dirname = path.resolve();
 
@@ -33,7 +40,7 @@ if(env_variable.NODE_ENV === "production") {
   )
 }
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   connectDB();
 }
