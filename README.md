@@ -51,7 +51,9 @@ Chatify/
 │       ├── middleware/          # protectRoute, arcjetProtection, socketAuth
 │       ├── models/              # user.model.js, message.model.js
 │       ├── routes/              # auth.route.js, message.route.js
-│       └── index.js             # Express app entry
+│       ├── test/                # Vitest suites (in-memory MongoDB)
+│       ├── app.js               # Express pipeline — middleware, routes, error handler
+│       └── index.js             # Process entry — connect, listen, graceful shutdown
 │
 └── package.json                 # Root build/start scripts for deployment
 ```
@@ -140,6 +142,8 @@ In development the client talks to the API at `http://localhost:8000/api` (hardc
 |---|---|
 | `npm run dev` | Start with `node --watch` |
 | `npm start` | Start the server |
+| `npm test` | Run the Vitest suite against an in-memory MongoDB |
+| `npm run test:watch` | Same, in watch mode |
 
 ## API reference
 
@@ -246,7 +250,7 @@ explains the split.
 
 The 23 defects recorded in [bugs.md](bugs.md) have been fixed. What remains, tracked in [improvements.md](improvements.md):
 
-- **No automated tests.** `npm test` in `server/` is still the placeholder that exits with an error. This is the largest remaining gap.
+- **The client has no tests.** The server has 69 (`npm test` in `server/`); the React app has no test script at all.
 - **Conversation history is unpaginated.** Opening a chat loads every message in it and renders them all — fine for small conversations, not for long ones.
 - **Request bodies are validated by hand**, so types are not checked as rigorously as a schema validator would.
 - **Presence is a full-roster broadcast.** Every connect and disconnect sends the complete list of online user ids to every client, which is both wasteful and more disclosure than it needs to be. Tracked as `DEC-05` in the PRD.

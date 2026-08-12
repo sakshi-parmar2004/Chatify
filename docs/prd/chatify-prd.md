@@ -118,8 +118,9 @@ A working one-to-one chat app. Stack, API reference and setup are in the
 - **Uploads go base64 through the API.** Images are inlined into a JSON body capped at 5 MB
   and forwarded to Cloudinary. This path structurally cannot carry voice notes, video or
   arbitrary files, and it makes upload progress impossible — the browser sees one opaque POST.
-- **There are no automated tests.** `X-03`. Every phase below inherits this risk until it is
-  closed.
+- **The server has a regression net; the client does not.** `X-03` landed for the backend
+  (69 tests, mutation-checked). Client-side behaviour — the inbox listener, the receipt
+  watermarks, optimistic send — is still covered by nothing.
 
 **Shipped since this document was opened — all of Phase 0:** read receipts and unread
 badges ([`MSG-01`](#msg-01--read-receipts--phase-0), [`MSG-02`](#msg-02--unread-badges--phase-0)),
@@ -208,7 +209,7 @@ features land on top of the old shape.
 
 **Impact** Data model, API surface, socket payloads. The largest single change on the roadmap.
 
-**Depends on** `X-03` (a migration without a regression net is not a safe migration)
+**Depends on** `X-03` — ✅ met for the server, which is where the migration lands
 
 **Status** Phase 1 · ⬜ Open
 
@@ -1125,7 +1126,7 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 
 | ID | Title | Phase | State | Depends on |
 |---|---|---|---|---|
-| `PLT-01` | The conversation model | 1 | ⬜ | `X-03` |
+| `PLT-01` | The conversation model | 1 | ⬜ | `X-03` ✅ |
 | `PLT-02` | Inbound socket event contract | 0 | ✅ | `X-05` |
 | `PLT-03` | Global inbox listener | 0 | ✅ | — |
 | `PLT-04` | Conversation-scoped socket rooms | 1 | ⬜ | `PLT-01` |

@@ -15,12 +15,16 @@ if(password.length < 6) {
   return res.status(400).json({ message: "Password must be at least 6 characters long" });
 }
 
+// Normalise before validating, not after. The regex rejects surrounding
+// whitespace, and password managers and mobile keyboards routinely add a
+// trailing space — validating the raw value turned that into "Invalid email
+// format" for an address the schema would have stored happily.
+const normalizedEmail = String(email).trim().toLowerCase();
+
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-if(!emailRegex.test(email)) {
+if(!emailRegex.test(normalizedEmail)) {
   return res.status(400).json({ message: "Invalid email format" });
 }
-// normalise before the lookup so the check matches what the schema will store
-const normalizedEmail = String(email).trim().toLowerCase();
 
 const alreadyExists = await User.findOne({ email: normalizedEmail });
 if(alreadyExists) {

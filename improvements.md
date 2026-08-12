@@ -1,6 +1,6 @@
 # Improvements
 
-> **Status: 19 done, 1 partly done, 9 open.** Each heading carries its state.
+> **Status: 20 done, 1 partly done, 8 open.** Each heading carries its state.
 > The open items are the ones that need a product decision, add a dependency, or
 > are projects rather than edits — they were deliberately not bundled into the
 > bug-fix pass. See [Still open](#still-open) at the end.
@@ -54,13 +54,33 @@ There is no template for the 15 environment variables the server needs. `server/
 
 ---
 
-## X-03 **P1** No automated tests anywhere — ⬜ Open
+## X-03 **P1** No automated tests anywhere — ✅ Done (server)
 
-`server/package.json` still carries the placeholder `"test": "echo \"Error: no test specified\" && exit 1"`. The client has no test script at all.
+**Files:** [server/vitest.config.js](server/vitest.config.js), [server/src/test/](server/src/test/)
 
-Given that [bugs.md](bugs.md) lists 23 defects — several of them one-line mistakes in auth and messaging — the absence of any regression net is the single largest risk to the codebase.
+Vitest + Supertest against an in-memory MongoDB, 69 tests over five files: the auth
+flow, the message round trip, receipts and unread counts, the delivered flush, and the
+inbound socket contract. `npm test` in `server/` runs them.
 
-**Do:** start narrow, not comprehensive. Vitest + Supertest covering the auth flow (register → login → `/get-user` → logout) and the message round-trip would have caught BE-01, BE-02, BE-05, and BE-11 outright.
+Two structural notes:
+
+- `src/index.js` was split so `src/app.js` exports the configured Express app without
+  connecting to a database or binding a port. The entry point owns the process
+  lifecycle; the app owns the request pipeline.
+- Each test file gets its own database name. Vitest isolates files into separate
+  workers, and sharing one database let a finishing file drop it out from under a
+  running one — which surfaced as a different test failing every few runs.
+
+Arcjet, Cloudinary and Resend are mocked; every required env var is stubbed before
+`lib/env.js` loads, so a test can never reach the real Atlas cluster or spend quota.
+
+Validated by mutation testing: of ten deliberately introduced defects, nine are
+caught. The tenth — dropping the explicit recency sort in `/chats` — is not
+detectable from outside, because MongoDB does not guarantee `$group` output order and
+it happens to come out sorted anyway. The explicit sort stays; it guards a documented
+non-guarantee.
+
+**Still open:** the client has no test script at all.
 
 ---
 
@@ -68,7 +88,7 @@ Given that [bugs.md](bugs.md) lists 23 defects — several of them one-line mist
 
 Nothing runs lint, build, or tests on push. `oxlint` exists but must be run by hand, and only two rules are enabled.
 
-**Do:** a GitHub Actions workflow running `npm run lint` and `npm run build` for the client and (once X-03 lands) `npm test` for the server.
+**Do:** a GitHub Actions workflow running `npm run lint` and `npm run build` for the client and `npm test` for the server — the last of which now exists (X-03).
 
 ---
 
@@ -86,7 +106,7 @@ Validation is hand-rolled and inconsistent — [auth.controller.js](server/src/c
 
 ## BE-I-01 **P1** Add `helmet` — ✅ Done
 
-**File:** [server/src/index.js](server/src/index.js)
+**File:** [server/src/app.js](server/src/app.js)
 
 `app.disable("x-powered-by")` is in place, but that is the only security header set. Missing: `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and a CSP for the SPA served in production.
 
@@ -98,7 +118,7 @@ Validation is hand-rolled and inconsistent — [auth.controller.js](server/src/c
 
 **Files:** [auth.controller.js:82](server/src/controller/auth.controller.js#L82), [message.controller.js:58-61](server/src/controller/message.controller.js#L58-L61)
 
-The body limit is `5mb` ([index.js:14](server/src/index.js#L14)), which after base64 overhead permits roughly a 3.7 MB image. Beyond that ceiling there is no check on MIME type, actual decoded size, or dimensions before the payload is forwarded to Cloudinary.
+The body limit is `5mb` ([app.js](server/src/app.js)), which after base64 overhead permits roughly a 3.7 MB image. Beyond that ceiling there is no check on MIME type, actual decoded size, or dimensions before the payload is forwarded to Cloudinary.
 
 **Why it matters:** every upload costs Cloudinary quota, and an authenticated user can burn it in a loop. This is the same code path as the SSRF issue in **BE-04** of bugs.md — fix them together.
 
@@ -189,7 +209,7 @@ Nothing exposes liveness or DB connectivity. A platform health check against `/`
 
 ## BE-I-10 **P3** Graceful shutdown — ✅ Done
 
-`server.listen` has no `SIGTERM` handler ([index.js:38](server/src/index.js#L38)). On deploy the process is killed with sockets open and requests in flight.
+`server.listen` has no `SIGTERM` handler ([index.js](server/src/index.js)). On deploy the process is killed with sockets open and requests in flight.
 
 **Do:** close the HTTP server and Socket.IO, drain, then close the Mongoose connection.
 
@@ -358,8 +378,8 @@ capability; this file owns hardening of what already exists.
 
 | ID | Item | Why it was not bundled in | Blocks |
 |---|---|---|---|
-| **X-03** | Automated tests | The largest remaining gap, and the one most worth doing next. A real suite is its own piece of work, not a rider on a fix commit. | Every phase — and `PLT-01`, which is not a safe migration without it |
-| **X-04** | CI pipeline | Depends on X-03 to be worth much. | — |
+| **X-03** | Automated tests | *Done for the server* — 69 tests, mutation-checked. The client half is untouched. | `PLT-01` is now unblocked |
+| **X-04** | CI pipeline | Now worth doing: `npm test` in `server/` is real. | — |
 | **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. | `PLT-02`, `MSG-04`, `MED-01` |
 | **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. | `MSG-08` |
 | **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. | — |
@@ -369,7 +389,7 @@ capability; this file owns hardening of what already exists.
 | **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. | `MED-04`, `NTF-06` |
 | **FE-I-10** | Expand lint rules | Turning on `correctness` and `react-hooks` will surface pre-existing warnings across the codebase. Worth doing, but as its own cleanup so the noise is separable. | — |
 
-Recommended next step: **X-03**. A Vitest + Supertest suite covering the auth flow and
-the message round trip would have caught BE-01, BE-02, BE-05, and BE-11 on its own, and
-it is what makes the rest of this list safe to work through. It is now also a gate on
-`PLT-01`, the conversation-model migration.
+Recommended next step: **X-04**. The server suite exists and passes, so wiring it into CI
+is now cheap and stops it rotting. After that, **X-05** — it is a stated dependency of
+three PRD features, and the inbound socket contract currently hand-validates because Zod
+was not available to it.
