@@ -334,6 +334,85 @@ export const useChatStore = create((set, get) => ({
     }));
   },
 
+  // --- GRP-01..03, MSG-10, MED-07 ---
+  createGroup: async ({ name, participantIds }) => {
+    try {
+      const res = await axiosInstance.post("/conversations/groups", { name, participantIds });
+      set((state) => ({ conversations: [res.data, ...state.conversations], activeTab: "chats" }));
+      get().selectConversation(res.data);
+      return res.data;
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not create the group"));
+      return null;
+    }
+  },
+
+  renameGroup: async (conversationId, name) => {
+    try {
+      await axiosInstance.patch(`/conversations/${conversationId}/group`, { name });
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not rename the group"));
+    }
+  },
+
+  addParticipants: async (conversationId, userIds) => {
+    try {
+      await axiosInstance.post(`/conversations/${conversationId}/participants`, { userIds });
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not add them"));
+    }
+  },
+
+  removeParticipant: async (conversationId, userId) => {
+    try {
+      await axiosInstance.delete(`/conversations/${conversationId}/participants/${userId}`);
+      const { authUser } = useAuthStore.getState();
+      // leaving is the same call as being removed; only the socket event that
+      // follows differs, and it will not arrive for our own request
+      if (authUser?._id === userId) {
+        set((state) => ({
+          conversations: state.conversations.filter((c) => c._id !== conversationId),
+          selectedConversation:
+            state.selectedConversation?._id === conversationId ? null : state.selectedConversation,
+        }));
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not remove them"));
+    }
+  },
+
+  setAdmin: async (conversationId, userId, makeAdmin) => {
+    try {
+      const url = `/conversations/${conversationId}/admins/${userId}`;
+      if (makeAdmin) await axiosInstance.put(url);
+      else await axiosInstance.delete(url);
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not change that role"));
+    }
+  },
+
+  togglePin: async (conversationId, messageId) => {
+    try {
+      await axiosInstance.put(`/conversations/${conversationId}/pins/${messageId}`);
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not pin that message"));
+    }
+  },
+
+  getConversationMedia: async (conversationId, { before } = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (before) params.set("before", before);
+      const res = await axiosInstance.get(
+        `/conversations/${conversationId}/media?${params}`
+      );
+      return res.data;
+    } catch (error) {
+      toast.error(errorMessage(error, "Could not load media"));
+      return { items: [], hasMore: false, nextCursor: null };
+    }
+  },
+
   // MSG-07
   searchMessages: async (query, { conversationId } = {}) => {
     if (!query || query.trim().length < 2) return [];

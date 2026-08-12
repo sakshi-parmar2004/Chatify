@@ -1,7 +1,8 @@
-import { useEffect } from "react";
-import { ArrowLeftIcon, XIcon, UsersIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeftIcon, XIcon, UsersIcon, InfoIcon } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
+import GroupDetailsPanel from "./GroupDetailsPanel";
 
 /** "Ana is typing…" for a direct chat, "Ana and 2 others…" for a group. */
 const typingLabel = (conversation, typingIds) => {
@@ -23,6 +24,7 @@ function ChatHeader() {
   const { onlineUsers } = useAuthStore();
 
   const typingIds = typingInSelected();
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     const handleEscKey = (event) => {
@@ -91,15 +93,35 @@ function ChatHeader() {
         </div>
       </div>
 
-      {/* the back arrow covers this on small screens */}
-      <button
-        type="button"
-        aria-label="Close conversation"
-        className="hidden md:block shrink-0"
-        onClick={closeConversation}
-      >
-        <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
-      </button>
+      <div className="flex items-center gap-3 shrink-0">
+        {isGroup && (
+          <button
+            type="button"
+            aria-label="Group details"
+            onClick={() => setShowDetails(true)}
+            className="text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <InfoIcon className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* the back arrow covers this on small screens */}
+        <button
+          type="button"
+          aria-label="Close conversation"
+          className="hidden md:block"
+          onClick={closeConversation}
+        >
+          <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
+        </button>
+      </div>
+
+      {showDetails && (
+        <GroupDetailsPanel
+          conversation={selectedConversation}
+          onClose={() => setShowDetails(false)}
+        />
+      )}
     </div>
   );
 }

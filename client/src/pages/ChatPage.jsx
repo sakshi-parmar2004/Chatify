@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { UsersIcon } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -7,6 +8,7 @@ import ProfileHeader from "../components/ProfileHeader";
 import ActiveTabSwitch from "../components/ActiveTabSwitch";
 import ChatsList from "../components/ChatsList";
 import MessageSearch from "../components/MessageSearch";
+import NewGroupDialog from "../components/NewGroupDialog";
 import ContactList from "../components/ContactList";
 import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
@@ -15,6 +17,7 @@ function ChatPage() {
   const { activeTab, selectedConversation, subscribeToInbox, unsubscribeFromInbox } =
     useChatStore();
   const { socket } = useAuthStore();
+  const [showNewGroup, setShowNewGroup] = useState(false);
 
   // One inbox listener for the whole authenticated session. Unread badges have
   // to update for conversations that are not open, which the old per-
@@ -42,6 +45,15 @@ function ChatPage() {
           <ProfileHeader />
           <ActiveTabSwitch />
           {activeTab === "chats" && <MessageSearch />}
+          {activeTab === "chats" && (
+            <button
+              type="button"
+              onClick={() => setShowNewGroup(true)}
+              className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg border border-slate-700/60 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            >
+              <UsersIcon className="w-4 h-4" /> New group
+            </button>
+          )}
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
             {activeTab === "chats" ? <ChatsList /> : <ContactList />}
@@ -58,6 +70,8 @@ function ChatPage() {
           {selectedConversation ? <ChatContainer /> : <NoConversationPlaceholder />}
         </div>
       </BorderAnimatedContainer>
+
+      {showNewGroup && <NewGroupDialog onClose={() => setShowNewGroup(false)} />}
     </div>
   );
 }

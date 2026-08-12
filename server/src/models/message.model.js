@@ -71,10 +71,17 @@ const linkPreviewSchema = new mongoose.Schema(
 
 const messageSchema = new mongoose.Schema(
   {
+    // null for system messages — "X added Y", "X left". Those are events in the
+    // conversation, not something anybody said.
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
+    },
+    type: {
+      type: String,
+      enum: ["user", "system"],
+      default: "user",
     },
     // Retained through the migrate-reads step so this phase stays revertible.
     // Nothing reads it any more; it is dropped at the contract step (DEC-02),

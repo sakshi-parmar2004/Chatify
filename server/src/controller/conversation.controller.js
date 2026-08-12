@@ -53,6 +53,8 @@ export const listConversations = async (req, res) => {
         $match: {
           senderId: { $ne: myId },
           deletedAt: null,
+          // "X added Y" is an event, not something anyone sent you
+          type: { $ne: "system" },
           $or: conversations.map((conversation) => ({
             conversationId: conversation._id,
             createdAt: { $gt: cursorOf.get(String(conversation._id)) },

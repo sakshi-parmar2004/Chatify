@@ -1,6 +1,6 @@
 # Chatify — Product Requirements
 
-> **Status: 20 of 34 shipped, across 6 phases.** Phases 0-3 are complete.
+> **Status: 27 of 34 shipped, across 6 phases.** Phases 0-4 are complete.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -508,7 +508,7 @@ as media processing, and sharing links is most of what people paste.
 
 **Depends on** `PLT-01`, `GRP-02`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ---
 
@@ -536,7 +536,7 @@ data model was reshaped in Phase 1.
 
 **Depends on** `PLT-01`, `PLT-04`, `DEC-03`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ### GRP-02 — Roles and permissions — Phase 4
 
@@ -554,7 +554,7 @@ way to remove someone is not shippable.
 
 **Depends on** `GRP-01`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ### GRP-03 — Member management — Phase 4
 
@@ -572,7 +572,7 @@ way to remove someone is not shippable.
 
 **Depends on** `GRP-01`, `GRP-02`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ### GRP-04 — Mentions — Phase 4
 
@@ -591,7 +591,7 @@ are "notify on everything" and "notify on nothing".
 
 **Depends on** `GRP-01`, `NTF-01`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ### GRP-05 — Group read state — Phase 4
 
@@ -610,7 +610,7 @@ one-to-one concept. This is where it has to become per-participant.
 
 **Depends on** `GRP-01`, `DEC-03`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ---
 
@@ -744,7 +744,7 @@ things on desktop.
 
 **Depends on** `MED-03`, `MSG-08`
 
-**Status** Phase 4 · ⬜ Open
+**Status** Phase 4 · ✅ Shipped
 
 ---
 
@@ -1068,7 +1068,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | **1 — Conversation migration** ✅ | `PLT-01`, `PLT-04` — shipped; contract step held | Literally everything below | Backfill verified by count; rollback rehearsed |
 | **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** ✅ | `MED-01`–`MED-06`, `MSG-09` — shipped | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
-| **4 — Groups** | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` | The second persona | `DEC-03` cursor migration complete |
+| **4 — Groups** 🟡 | `GRP-01`–`GRP-03`, `GRP-05`, `MSG-10`, `MED-07` — shipped; `GRP-04` mentions open | The second persona | `DEC-03` cursor migration complete |
 | **5 — Notifications** | `NTF-01`–`NTF-07`, `PLT-05` | Chatify works without a tab open | `NTF-04` before any push ships |
 
 **Why not do Phase 2 before Phase 1?** It feels better — visible progress sooner. It loses
@@ -1116,8 +1116,8 @@ group produces no notification of any kind. No notification arrives during a qui
 
 | # | Question | Decide by |
 |---|---|---|
-| 1 | Do new group members see history from before they joined, or only after? Affects `GRP-03`'s acceptance and the media gallery's scope. | Phase 4 |
-| 2 | What is the right delete-for-everyone window? One hour is a starting guess, not a researched number. | Phase 2 |
+| 1 | ~~Do new group members see history from before they joined?~~ **Answered: yes, full history.** A group where half the members see a different thread is confusing, and hiding it properly needs a per-participant `joinedAt` filter on every read. Their read cursor starts null, so the backlog does not land as unread. | ✅ Phase 4 |
+| 2 | ~~What is the right delete-for-everyone window?~~ **Answered: one hour**, with group admins exempt. | ✅ Phase 2 |
 | 3 | Should cross-conversation search be a separate surface from in-conversation search, or one input with a scope switch? | Phase 2 |
 | 4 | Is a PWA install prompt worth shipping alongside web push, or does it distract from the permission ask? | Phase 5 |
 | 5 | What is the retention story for media attached to tombstoned messages — immediate hard delete, or a grace period? | Phase 2 |
@@ -1144,19 +1144,19 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `MSG-07` | Message search | 2 | ✅ | `PLT-01`, `MSG-08` |
 | `MSG-08` | Conversation history | 2 | ✅ | `BE-I-05`, `FE-I-04` |
 | `MSG-09` | Link previews | 3 | ✅ | `PLT-01` |
-| `MSG-10` | Pin a message | 4 | ⬜ | `PLT-01`, `GRP-02` |
-| `GRP-01` | Group conversations | 4 | ⬜ | `PLT-01`, `PLT-04`, `DEC-03` |
-| `GRP-02` | Roles and permissions | 4 | ⬜ | `GRP-01` |
-| `GRP-03` | Member management | 4 | ⬜ | `GRP-01`, `GRP-02` |
+| `MSG-10` | Pin a message | 4 | ✅ | `PLT-01`, `GRP-02` |
+| `GRP-01` | Group conversations | 4 | ✅ | `PLT-01`, `PLT-04`, `DEC-03` |
+| `GRP-02` | Roles and permissions | 4 | ✅ | `GRP-01` |
+| `GRP-03` | Member management | 4 | ✅ | `GRP-01`, `GRP-02` |
 | `GRP-04` | Mentions | 4 | ⬜ | `GRP-01`, `NTF-01` |
-| `GRP-05` | Group read state | 4 | ⬜ | `GRP-01`, `DEC-03` |
+| `GRP-05` | Group read state | 4 | ✅ | `GRP-01`, `DEC-03` |
 | `MED-01` | Signed direct uploads | 3 | ✅ | `X-05` |
 | `MED-02` | Upload progress and cancel | 3 | ✅ | `MED-01` |
 | `MED-03` | Arbitrary file attachments | 3 | ✅ | `MED-01` |
 | `MED-04` | Voice notes | 3 | ✅ | `MED-01`, `FE-I-07` |
 | `MED-05` | Video | 3 | ✅ | `MED-01` |
 | `MED-06` | Drag, drop and paste | 3 | ✅ | `MED-01`, `MED-03` |
-| `MED-07` | Conversation media gallery | 4 | ⬜ | `MED-03`, `MSG-08` |
+| `MED-07` | Conversation media gallery | 4 | ✅ | `MED-03`, `MSG-08` |
 | `NTF-01` | Web push | 5 | ⬜ | `PLT-01`, `NTF-04` |
 | `NTF-02` | Desktop notifications | 5 | ⬜ | `NTF-04`, `NTF-05` |
 | `NTF-03` | Unread digest email | 5 | ⬜ | `DEC-03`, `NTF-05` |
