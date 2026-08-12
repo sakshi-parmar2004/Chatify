@@ -4,7 +4,8 @@ import http from "http";
 import { env_variable } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
 import { registerInboundEvents } from "./socketEvents.js";
-import { flushDeliveredForUser, conversationIdsFor } from "./delivery.js";
+import { flushDeliveredForUser, conversationIdsFor, contactIdsFor } from "./delivery.js";
+import User from "../models/user.model.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -74,14 +75,25 @@ export const emitToUser = (userId, event, payload) => {
   }
 };
 
+/** Tell only the people who share a conversation with this user (PLT-05). */
+const announcePresence = async (userId, online) => {
+  try {
+    for (const contactId of await contactIdsFor(userId)) {
+      emitToUser(contactId, "presence", { userId, online });
+    }
+  } catch (error) {
+    console.error("Error announcing presence for", userId, "-", error.message);
+  }
+};
+
 io.on("connection", async (socket) => {
   const userId = socket.userId;
 
+  // a second tab is not a new arrival, so it must not re-announce
+  const isFirstConnection = !userSocketMap.has(userId) || userSocketMap.get(userId).size === 0;
+
   if (!userSocketMap.has(userId)) userSocketMap.set(userId, new Set());
   userSocketMap.get(userId).add(socket.id);
-
-  // io.emit() is used to send events to all connected clients
-  io.emit("getOnlineUsers", [...userSocketMap.keys()]);
 
   // every client -> server event goes through the registry, which owns payload
   // validation and the per-socket rate limit
@@ -101,7 +113,15 @@ io.on("connection", async (socket) => {
     // only mark the user offline once their last connection closes
     if (sockets.size === 0) userSocketMap.delete(userId);
 
-    io.emit("getOnlineUsers", [...userSocketMap.keys()]);
+    // PLT-05: only people who share a conversation are told, and only when the
+    // last tab closes.
+    if (sockets.size === 0) {
+      // NTF-07 — stamped on the way out, so "last seen" is when they actually left
+      void User.updateOne({ _id: userId }, { $set: { lastSeenAt: new Date() } }).catch(
+        (error) => console.error("Error stamping lastSeenAt:", error.message)
+      );
+      void announcePresence(userId, false);
+    }
     // Nothing is emitted here to clear a "typing…" indicator: the server does
     // not track which conversation this socket was composing in. The client
     // expires the indicator on a timer instead, which also covers a dropped
@@ -115,6 +135,22 @@ io.on("connection", async (socket) => {
     for (const conversationId of await conversationIdsFor(userId)) {
       socket.join(conversationRoom(conversationId));
     }
+
+    // PLT-05 — presence is a scoped notification, not a broadcast. Sent after
+    // the rooms are joined so a contact learning we are online can already
+    // reach us.
+    const contactIds = await contactIdsFor(userId);
+    if (isFirstConnection) {
+      for (const contactId of contactIds) {
+        emitToUser(contactId, "presence", { userId, online: true });
+      }
+    }
+
+    // and tell this socket who among its own contacts is already online
+    socket.emit(
+      "getOnlineUsers",
+      contactIds.filter((contactId) => isOnline(contactId))
+    );
 
     for (const { conversation, lastDeliveredAt } of await flushDeliveredForUser(userId)) {
       emitToConversation(conversation, "conversationDelivered", {

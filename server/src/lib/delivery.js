@@ -54,3 +54,25 @@ export const flushDeliveredForUser = async (userId) => {
 
   return updated;
 };
+
+/**
+ * PLT-05 — everyone who shares a conversation with this user.
+ *
+ * The presence audience. The old design broadcast the complete online roster to
+ * every client on every connect and disconnect: O(users^2) in messages, and it
+ * told everybody who else was online whether or not they had any relationship.
+ */
+export const contactIdsFor = async (userId) => {
+  const conversations = await Conversation.find({ participants: userId })
+    .select("participants")
+    .lean();
+
+  const contacts = new Set();
+  for (const conversation of conversations) {
+    for (const participantId of conversation.participants) {
+      if (String(participantId) !== String(userId)) contacts.add(String(participantId));
+    }
+  }
+
+  return [...contacts];
+};

@@ -6,6 +6,7 @@ import path from "node:path";
 import authRouter from "./routes/auth.route.js";
 import messageRouter from "./routes/message.route.js";
 import conversationRouter from "./routes/conversation.route.js";
+import notificationRouter from "./routes/notification.route.js";
 import { isDbConnected } from "./lib/db.js";
 import { env_variable } from "./lib/env.js";
 import { app } from "./lib/socket.js";
@@ -59,6 +60,7 @@ app.get("/api/health", (_, res) => {
 });
 
 app.use("/api/conversations", conversationRouter);
+app.use("/api/notifications", notificationRouter);
 // PLT-01: the pre-migration surface. Still serves the contacts list and acts as
 // a compatibility layer for conversation-unaware callers.
 app.use("/api/messages", messageRouter);

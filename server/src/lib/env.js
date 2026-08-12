@@ -18,6 +18,12 @@ export const env_variable={
     // "strict" is safe when the client is served from the same origin as the API.
     // Set to "none" (which forces secure cookies) when the client is on another domain.
     COOKIE_SAMESITE: process.env.COOKIE_SAMESITE || "strict",
+    // NTF-01. Optional: without a key pair the app runs exactly as before and
+    // push is skipped, so a missing value must not stop the server booting.
+    // Generate with: npx web-push generate-vapid-keys
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT,
 }
 
 // Fail fast at boot rather than on the first request that needs a missing key.

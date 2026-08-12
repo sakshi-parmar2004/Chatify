@@ -96,10 +96,30 @@ export const useAuthStore = create((set, get) => ({
     });
 
     set({ socket });
+    get().subscribeToPresence();
+  },
 
-    // listen for online users event
-    socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
+  /**
+   * PLT-05 — the server no longer broadcasts the whole roster. On connect it
+   * sends the subset of our own contacts who are online; after that we get one
+   * delta per contact, rather than a full list to everyone every time anyone
+   * anywhere connects or disconnects.
+   *
+   * Separate from connectSocket so it can be exercised without opening a real
+   * connection.
+   */
+  subscribeToPresence: () => {
+    const { socket } = get();
+    if (!socket) return;
+
+    socket.on("getOnlineUsers", (userIds) => set({ onlineUsers: userIds }));
+
+    socket.on("presence", ({ userId, online }) => {
+      set((state) => ({
+        onlineUsers: online
+          ? [...new Set([...state.onlineUsers, userId])]
+          : state.onlineUsers.filter((id) => id !== userId),
+      }));
     });
   },
 

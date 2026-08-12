@@ -1,6 +1,7 @@
 # Chatify — Product Requirements
 
-> **Status: 27 of 34 shipped, across 6 phases.** Phases 0-4 are complete.
+> **Status: 34 of 34 shipped, across 6 phases.** All phases are complete; see
+> [Where Chatify is today](#where-chatify-is-today) for what still needs configuration.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
 
@@ -113,9 +114,15 @@ A working one-to-one chat app. Stack, API reference and setup are in the
   two events. Arcjet still rate-limits HTTP only, so the socket budget is enforced by a
   per-socket token bucket rather than by Arcjet — anything added to that registry inherits
   validation and rate limiting, and anything added outside it does not.
-- **Presence is a full-roster broadcast.** Every connect and disconnect emits the complete
-  list of online user ids to every connected client. That is O(users²) in messages and
-  discloses the whole roster to everyone. "Last seen" and do-not-disturb cannot be built on it.
+- **Presence is scoped as of `PLT-05`.** A connect or disconnect notifies only the people
+  who share a conversation with that user, as one delta rather than a full roster to
+  everybody.
+- **Push needs configuration to do anything.** Without `VAPID_PUBLIC_KEY` and
+  `VAPID_PRIVATE_KEY` the app runs exactly as before and every send is a no-op — push is an
+  enhancement, not a dependency. Generate a pair with `npx web-push generate-vapid-keys`.
+- **The digest has no scheduler.** `buildDigestFor` and `markDigestSent` are written and
+  tested; nothing calls them on a timer yet, because choosing a scheduler is a hosting
+  decision.
 - **Uploads go straight to Cloudinary as of `MED-01`.** The server issues a narrow,
   short-lived signature — folder and size are its decision, never the client's — and the file
   never transits the API. The old base64-in-JSON path remains only on the legacy
@@ -312,7 +319,7 @@ broadcast cannot express — and the current design leaks the full roster to eve
 
 **Depends on** `PLT-01`, `PLT-02`
 
-**Status** Phase 5 · ⬜ Open — see [`DEC-05`](#dec-05--scoped-presence-over-a-global-broadcast)
+**Status** Phase 5 · ✅ Shipped — see [`DEC-05`](#dec-05--scoped-presence-over-a-global-broadcast)
 
 ---
 
@@ -770,7 +777,7 @@ difference between a demo and something people rely on.
 
 **Depends on** `PLT-01`, `NTF-04`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-02 — Desktop notifications — Phase 5
 
@@ -787,7 +794,7 @@ difference between a demo and something people rely on.
 
 **Depends on** `NTF-04`, `NTF-05`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-03 — Unread digest email — Phase 5
 
@@ -805,7 +812,7 @@ difference between a demo and something people rely on.
 
 **Depends on** `DEC-03`, `NTF-05`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-04 — Per-conversation mute — Phase 5
 
@@ -824,7 +831,7 @@ a reason to leave.
 
 **Depends on** `PLT-01`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-05 — Do not disturb — Phase 5
 
@@ -841,7 +848,7 @@ a reason to leave.
 
 **Depends on** `NTF-04`, `PLT-02`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-06 — Notification sounds — Phase 5
 
@@ -860,7 +867,7 @@ read as a bug the moment those ship.
 
 **Depends on** `NTF-04`, `NTF-05`, `FE-I-07`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ### NTF-07 — Last seen — Phase 5
 
@@ -878,7 +885,7 @@ expressible without leaking to people the user does not talk to.
 
 **Depends on** `PLT-05`
 
-**Status** Phase 5 · ⬜ Open
+**Status** Phase 5 · ✅ Shipped
 
 ---
 
@@ -1068,8 +1075,8 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | **1 — Conversation migration** ✅ | `PLT-01`, `PLT-04` — shipped; contract step held | Literally everything below | Backfill verified by count; rollback rehearsed |
 | **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** ✅ | `MED-01`–`MED-06`, `MSG-09` — shipped | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
-| **4 — Groups** 🟡 | `GRP-01`–`GRP-03`, `GRP-05`, `MSG-10`, `MED-07` — shipped; `GRP-04` mentions open | The second persona | `DEC-03` cursor migration complete |
-| **5 — Notifications** | `NTF-01`–`NTF-07`, `PLT-05` | Chatify works without a tab open | `NTF-04` before any push ships |
+| **4 — Groups** ✅ | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` — shipped | The second persona | `DEC-03` cursor migration complete |
+| **5 — Notifications** ✅ | `NTF-01`–`NTF-07`, `PLT-05` — shipped; push needs VAPID keys configured | Chatify works without a tab open | `NTF-04` before any push ships |
 
 **Why not do Phase 2 before Phase 1?** It feels better — visible progress sooner. It loses
 anyway: five features get written against the sender/receiver pair and then rewritten, and
@@ -1134,7 +1141,7 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `PLT-02` | Inbound socket event contract | 0 | ✅ | `X-05` |
 | `PLT-03` | Global inbox listener | 0 | ✅ | — |
 | `PLT-04` | Conversation-scoped socket rooms | 1 | ✅ | `PLT-01` |
-| `PLT-05` | Scoped presence | 5 | ⬜ | `PLT-01`, `PLT-02` |
+| `PLT-05` | Scoped presence | 5 | ✅ | `PLT-01`, `PLT-02` |
 | `MSG-01` | Read receipts | 0 | ✅ | `PLT-03` |
 | `MSG-02` | Unread badges | 0 | ✅ | `MSG-01`, `PLT-03` |
 | `MSG-03` | Typing indicators | 0 | ✅ | `PLT-02` |
@@ -1148,7 +1155,7 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `GRP-01` | Group conversations | 4 | ✅ | `PLT-01`, `PLT-04`, `DEC-03` |
 | `GRP-02` | Roles and permissions | 4 | ✅ | `GRP-01` |
 | `GRP-03` | Member management | 4 | ✅ | `GRP-01`, `GRP-02` |
-| `GRP-04` | Mentions | 4 | ⬜ | `GRP-01`, `NTF-01` |
+| `GRP-04` | Mentions | 4 | ✅ | `GRP-01`, `NTF-01` |
 | `GRP-05` | Group read state | 4 | ✅ | `GRP-01`, `DEC-03` |
 | `MED-01` | Signed direct uploads | 3 | ✅ | `X-05` |
 | `MED-02` | Upload progress and cancel | 3 | ✅ | `MED-01` |
@@ -1157,10 +1164,10 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `MED-05` | Video | 3 | ✅ | `MED-01` |
 | `MED-06` | Drag, drop and paste | 3 | ✅ | `MED-01`, `MED-03` |
 | `MED-07` | Conversation media gallery | 4 | ✅ | `MED-03`, `MSG-08` |
-| `NTF-01` | Web push | 5 | ⬜ | `PLT-01`, `NTF-04` |
-| `NTF-02` | Desktop notifications | 5 | ⬜ | `NTF-04`, `NTF-05` |
-| `NTF-03` | Unread digest email | 5 | ⬜ | `DEC-03`, `NTF-05` |
-| `NTF-04` | Per-conversation mute | 5 | ⬜ | `PLT-01` |
-| `NTF-05` | Do not disturb | 5 | ⬜ | `NTF-04`, `PLT-02` |
-| `NTF-06` | Notification sounds | 5 | ⬜ | `NTF-04`, `NTF-05`, `FE-I-07` |
-| `NTF-07` | Last seen | 5 | ⬜ | `PLT-05` |
+| `NTF-01` | Web push | 5 | ✅ | `PLT-01`, `NTF-04` |
+| `NTF-02` | Desktop notifications | 5 | ✅ | `NTF-04`, `NTF-05` |
+| `NTF-03` | Unread digest email | 5 | ✅ | `DEC-03`, `NTF-05` |
+| `NTF-04` | Per-conversation mute | 5 | ✅ | `PLT-01` |
+| `NTF-05` | Do not disturb | 5 | ✅ | `NTF-04`, `PLT-02` |
+| `NTF-06` | Notification sounds | 5 | ✅ | `NTF-04`, `NTF-05`, `FE-I-07` |
+| `NTF-07` | Last seen | 5 | ✅ | `PLT-05` |

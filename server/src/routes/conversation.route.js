@@ -10,6 +10,7 @@ import {
   createMessage,
 } from "../controller/conversation.controller.js";
 import { createUploadSignature } from "../controller/upload.controller.js";
+import { muteConversation } from "../controller/notification.controller.js";
 import {
   createGroup,
   updateGroup,
@@ -66,5 +67,6 @@ conversationRouter.delete("/:id/admins/:userId", loadConversation, requireGroupA
 
 conversationRouter.put("/:id/pins/:messageId", loadConversation, togglePin);
 conversationRouter.get("/:id/media", loadConversation, listConversationMedia);
+conversationRouter.put("/:id/mute", loadConversation, muteConversation);
 
 export default conversationRouter;

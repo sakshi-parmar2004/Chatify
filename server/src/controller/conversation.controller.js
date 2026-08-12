@@ -3,10 +3,12 @@ import cloudinary from "../lib/cloudinary.js";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
-import { emitToConversation, joinConversationRoom, isOnline } from "../lib/socket.js";
+import { emitToConversation, joinConversationRoom, isOnline, emitToUser } from "../lib/socket.js";
 import { findOrCreateDirectConversation, stateFor } from "../lib/conversations.js";
 import { validateImageDataUri } from "../lib/validateImage.js";
 import { firstUrlIn, resolveLinkPreview } from "../lib/linkPreview.js";
+import { resolveMentions, recipientsFor } from "../lib/notifications.js";
+import { sendPushToUser } from "../lib/push.js";
 
 // A conversation list longer than this is a paging problem, not a page.
 const CONVERSATION_LIMIT = 200;
@@ -317,8 +319,16 @@ export const createMessage = async (req, res) => {
       imageUrl = uploaded.secure_url;
     }
 
+    // GRP-04 — resolved against the participant list, so an @name that is not
+    // in this conversation is just text
+    const participantUsers = await User.find({ _id: { $in: conversation.participants } })
+      .select("name")
+      .lean();
+    const mentions = resolveMentions(text, participantUsers);
+
     const newMessage = await Message.create({
       conversationId: conversation._id,
+      mentions,
       senderId,
       // still written for the direct case so a rollback of this phase keeps
       // working; nothing reads it any more
@@ -358,9 +368,10 @@ export const createMessage = async (req, res) => {
 
     res.status(201).json(newMessage);
 
-    // MSG-09 — after the response, never blocking it. A slow or hostile host
-    // must not hold up someone's message, and a failure here is invisible.
+    // Both run after the response and never block it. A slow host or a dead
+    // push endpoint must not hold up someone's message.
     void enrichWithLinkPreview(conversation, newMessage);
+    void notifyRecipients(conversation, newMessage, req.user);
   } catch (error) {
     console.error("Error in createMessage: ", error.message);
     res.status(500).json({ message: "Internal server error" });
@@ -442,5 +453,45 @@ const enrichWithLinkPreview = async (conversation, message) => {
     }
   } catch (error) {
     console.error("Error resolving link preview:", error.message);
+  }
+};
+
+/**
+ * NTF-01 / NTF-02 — tell everyone who should be told.
+ *
+ * Routing lives in lib/notifications so mute and do-not-disturb cannot be
+ * honoured by one surface and forgotten by another.
+ */
+const notifyRecipients = async (conversation, message, sender) => {
+  try {
+    const recipients = await recipientsFor(conversation, message);
+    if (recipients.length === 0) return;
+
+    const title =
+      conversation.type === "group"
+        ? `${sender.name} in ${conversation.name ?? "a group"}`
+        : sender.name;
+
+    const body =
+      message.text?.slice(0, 140) ||
+      (message.attachment ? `Sent a ${message.attachment.kind}` : "Sent a message");
+
+    for (const recipient of recipients) {
+      // in-app, for a tab that is open but not focused (NTF-02)
+      emitToUser(recipient._id, "notify", {
+        conversationId: String(conversation._id),
+        messageId: String(message._id),
+        title,
+        body,
+      });
+
+      void sendPushToUser(recipient._id, {
+        title,
+        body,
+        conversationId: String(conversation._id),
+      });
+    }
+  } catch (error) {
+    console.error("Error notifying recipients:", error.message);
   }
 };

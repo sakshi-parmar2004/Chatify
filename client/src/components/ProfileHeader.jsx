@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import toast from "react-hot-toast";
-import { LogOutIcon, VolumeOffIcon, Volume2Icon } from "lucide-react";
+import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import NotificationSettings from "./NotificationSettings";
 
 const mouseClickSound = new Audio("/sounds/mouse-click.mp3");
 
@@ -10,6 +11,7 @@ function ProfileHeader() {
   const { logout, authUser, updateProfile } = useAuthStore();
   const { isSoundEnabled, toggleSound } = useChatStore();
   const [selectedImg, setSelectedImg] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const fileInputRef = useRef(null);
 
@@ -110,8 +112,22 @@ function ProfileHeader() {
               <VolumeOffIcon className="size-5" />
             )}
           </button>
+
+          {/* NOTIFICATION SETTINGS — push and quiet hours */}
+          <button
+            type="button"
+            aria-label="Notification settings"
+            className="text-slate-400 hover:text-slate-200 transition-colors"
+            onClick={() => setShowNotifications(true)}
+          >
+            <BellIcon className="size-5" />
+          </button>
         </div>
       </div>
+
+      {showNotifications && (
+        <NotificationSettings onClose={() => setShowNotifications(false)} />
+      )}
     </div>
   );
 }

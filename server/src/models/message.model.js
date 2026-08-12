@@ -119,6 +119,8 @@ const messageSchema = new mongoose.Schema(
     },
     replySnapshot: { type: replySnapshotSchema, default: null },
     reactions: { type: [reactionSchema], default: [] },
+    // GRP-04 — resolved server-side at send time against the participant list
+    mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     editedAt: { type: Date, default: null },
     // Tombstone rather than removal (DEC-08): a hard delete punches a hole in
     // pagination cursors and orphans every reply that quotes it.

@@ -621,6 +621,24 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
+    // NTF-02 — the tab is open but not on screen. Routing (mute, quiet hours,
+    // mentions) was already decided server-side; this only asks whether the
+    // user can actually see the conversation right now.
+    socket.on("notify", ({ conversationId, title, body }) => {
+      const isVisible = document.visibilityState === "visible";
+      const isOpen = get().selectedConversation?._id === conversationId;
+      if (isVisible && isOpen) return;
+
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+      try {
+        // tagged per conversation so ten messages are one notification
+        new Notification(title, { body, tag: conversationId, icon: "/favicon.svg" });
+      } catch {
+        // some browsers only allow this from a service worker; push covers those
+      }
+    });
+
     socket.on("removedFromConversation", ({ conversationId }) => {
       set((state) => ({
         conversations: state.conversations.filter((c) => c._id !== conversationId),
@@ -646,6 +664,8 @@ export const useChatStore = create((set, get) => ({
       "userStoppedTyping",
       "conversationUpdated",
       "removedFromConversation",
+      "notify",
+      "presence",
     ]) {
       socket.off(event);
     }
