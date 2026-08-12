@@ -20,6 +20,15 @@ const participantStateSchema = new mongoose.Schema(
     // NTF-04. Per user, not per device, so muting on a phone mutes everywhere.
     // A null date means never muted; a far-future date means indefinitely.
     mutedUntil: { type: Date, default: null },
+    /**
+     * UIX-04. Per viewer, not per conversation: the same thread may look
+     * different to each participant, which is exactly what this array already
+     * models for read cursors and mute.
+     */
+    wallpaper: {
+      preset: { type: String, default: null },
+      url: { type: String, default: null },
+    },
   },
   { _id: false }
 );

@@ -143,6 +143,8 @@ export const serializeConversation = (
     lastMessageAt: conversation.lastMessageAt,
     unreadCount,
     mutedUntil: stateFor(conversation, myId).mutedUntil ?? null,
+    // per viewer — see UIX-04
+    wallpaper: stateFor(conversation, myId).wallpaper ?? null,
     pinnedMessageIds: conversation.pinnedMessageIds ?? [],
   };
 };

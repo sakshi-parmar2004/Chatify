@@ -58,7 +58,9 @@
   --surface-raised: 39 39 42;
   --line: 161 161 170;
 
-  --accent: 139 92 246;
+  /* violet-500 against near-white ink measures 4.06:1 — under AA. Darkened
+     until it clears; accent-soft stays bright for links, which only needs 3:1. */
+  --accent: 91 33 182;
   --accent-soft: 167 139 250;
   --accent-ink: 250 250 250;
 

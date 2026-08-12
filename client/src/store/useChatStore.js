@@ -665,6 +665,19 @@ export const useChatStore = create((set, get) => ({
       }
     });
 
+    // UIX-04 — another of this user's tabs changed the wallpaper
+    socket.on("conversationWallpaper", ({ conversationId, wallpaper }) => {
+      set((state) => ({
+        conversations: state.conversations.map((conversation) =>
+          conversation._id === conversationId ? { ...conversation, wallpaper } : conversation
+        ),
+        selectedConversation:
+          state.selectedConversation?._id === conversationId
+            ? { ...state.selectedConversation, wallpaper }
+            : state.selectedConversation,
+      }));
+    });
+
     socket.on("removedFromConversation", ({ conversationId }) => {
       set((state) => ({
         conversations: state.conversations.filter((c) => c._id !== conversationId),
@@ -690,6 +703,7 @@ export const useChatStore = create((set, get) => ({
       "userStoppedTyping",
       "conversationUpdated",
       "removedFromConversation",
+      "conversationWallpaper",
       "notify",
       "presence",
     ]) {

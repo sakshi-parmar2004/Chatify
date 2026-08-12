@@ -31,6 +31,22 @@ const doNotDisturbSchema = new mongoose.Schema(
     { _id: false }
 );
 
+/** UIX-03/UIX-04 — appearance, stored on the account so it follows the user. */
+const preferencesSchema = new mongoose.Schema(
+    {
+        // validated against the same list the client renders from; an unknown
+        // value must not persist, or the UI silently falls back forever
+        theme: { type: String, default: "midnight" },
+        reduceTransparency: { type: Boolean, default: false },
+        // the account-level default; a conversation may override it
+        wallpaper: {
+            preset: { type: String, default: null },
+            url: { type: String, default: null },
+        },
+    },
+    { _id: false }
+);
+
 //created a schema for the user model
 const UserSchema = new mongoose.Schema(
     {
@@ -47,6 +63,13 @@ const UserSchema = new mongoose.Schema(
         // NTF-07. Deliberately coarse: rounded to the minute when read, so it
         // cannot be used to watch someone's activity second by second.
         lastSeenAt: { type: Date, default: null },
+        preferences: { type: preferencesSchema, default: () => ({}) },
+        /**
+         * OBS-04. A global role, distinct from Conversation.admins, which is
+         * per-conversation and unrelated. Only ever grants read access to audit
+         * events and client errors — never to message content.
+         */
+        role: { type: String, enum: ["user", "admin"], default: "user" },
     },
     { timestamps: true }
 );
