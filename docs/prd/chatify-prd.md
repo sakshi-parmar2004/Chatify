@@ -1,7 +1,7 @@
 # Chatify — Product Requirements
 
-> **Status: 34 of 42 shipped, across 7 phases.** Phase 6 (design system and
-> observability) is in progress. All phases are complete; see
+> **Status: 42 of 42 shipped, across 7 phases.** All phases complete; see
+> [DECISIONS.md](../../DECISIONS.md) for the judgement calls behind Phase 6. All phases are complete; see
 > [Where Chatify is today](#where-chatify-is-today) for what still needs configuration.
 > Every feature carries its phase and state. The [ID index](#id-index) at the end is the
 > whole roadmap on one screen — if you read only one section, read that one.
@@ -911,7 +911,7 @@ before it adds more hardcoded classes to migrate.
 
 **Depends on** —
 
-**Status** Phase 6 · ⬜ Open — see [`DEC-13`](#dec-13--drop-daisyui)
+**Status** Phase 6 · ✅ Shipped — see [`DEC-13`](#dec-13--drop-daisyui)
 
 ### UIX-02 — Glassmorphism — Phase 6
 
@@ -929,7 +929,7 @@ sitting on it are flat.
 
 **Depends on** `UIX-01`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ### UIX-03 — Selectable themes — Phase 6
 
@@ -945,7 +945,7 @@ sitting on it are flat.
 
 **Depends on** `UIX-01`, `UIX-02`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ### UIX-04 — Chat wallpaper — Phase 6
 
@@ -961,7 +961,7 @@ sitting on it are flat.
 
 **Depends on** `UIX-02`, `MED-01`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ---
 
@@ -984,7 +984,7 @@ so doing them apart means touching each twice.
 
 **Depends on** `X-03`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ### OBS-02 — Activity log — Phase 6
 
@@ -1001,7 +1001,7 @@ own.
 
 **Depends on** `OBS-01`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ### OBS-03 — Client error reporting — Phase 6
 
@@ -1021,7 +1021,7 @@ opening the app. Nothing recorded it.
 
 **Depends on** `OBS-01`
 
-**Status** Phase 6 · ⬜ Open
+**Status** Phase 6 · ✅ Shipped
 
 ### OBS-04 — Admin activity viewer — Phase 6
 
@@ -1036,7 +1036,7 @@ opening the app. Nothing recorded it.
 
 **Depends on** `OBS-02`, `OBS-03`
 
-**Status** Phase 6 · ⬜ Open — see [`DEC-12`](#dec-12--amending-the-admin-console-non-goal)
+**Status** Phase 6 · ✅ Shipped — see [`DEC-12`](#dec-12--amending-the-admin-console-non-goal)
 
 ---
 
@@ -1272,7 +1272,7 @@ Dependency-driven. Each phase pays for the substrate the next one assumes.
 | **2 — Message polish** ✅ | `MSG-04`, `MSG-05`, `MSG-06`, `MSG-07`, `MSG-08` — shipped | The conversation stops being a flat log | `X-05` schemas for all new bodies |
 | **3 — Media** ✅ | `MED-01`–`MED-06`, `MSG-09` — shipped | Chatify carries more than text and images | `DEC-07` accepted and `MED-01` shipped |
 | **4 — Groups** ✅ | `GRP-01`–`GRP-05`, `MSG-10`, `MED-07` — shipped | The second persona | `DEC-03` cursor migration complete |
-| **6 — Design system and observability** | `UIX-01`–`UIX-04`, `OBS-01`–`OBS-04` | A themeable UI and the ability to see what the app is doing | `OBS-01` before `OBS-02`/`OBS-03` |
+| **6 — Design system and observability** ✅ | `UIX-01`–`UIX-04`, `OBS-01`–`OBS-04` | A themeable UI and the ability to see what the app is doing | `OBS-01` before `OBS-02`/`OBS-03` |
 | **5 — Notifications** ✅ | `NTF-01`–`NTF-07`, `PLT-05` — shipped; push needs VAPID keys configured | Chatify works without a tab open | `NTF-04` before any push ships |
 
 **Why not do Phase 2 before Phase 1?** It feels better — visible progress sooner. It loses
@@ -1368,11 +1368,11 @@ Everything on one screen. Status: ✅ shipped · ⬜ open · ⬛ dropped.
 | `NTF-05` | Do not disturb | 5 | ✅ | `NTF-04`, `PLT-02` |
 | `NTF-06` | Notification sounds | 5 | ✅ | `NTF-04`, `NTF-05`, `FE-I-07` |
 | `NTF-07` | Last seen | 5 | ✅ | `PLT-05` |
-| `UIX-01` | Design tokens | 6 | ⬜ | `DEC-13` |
-| `UIX-02` | Glassmorphism | 6 | ⬜ | `UIX-01` |
-| `UIX-03` | Selectable themes | 6 | ⬜ | `UIX-01`, `UIX-02` |
-| `UIX-04` | Chat wallpaper | 6 | ⬜ | `UIX-02`, `MED-01` |
-| `OBS-01` | Structured server logging | 6 | ⬜ | `X-03` ✅ |
-| `OBS-02` | Activity log | 6 | ⬜ | `OBS-01` |
-| `OBS-03` | Client error reporting | 6 | ⬜ | `OBS-01` |
-| `OBS-04` | Admin activity viewer | 6 | ⬜ | `OBS-02`, `OBS-03` |
+| `UIX-01` | Design tokens| 6 | ✅ | `DEC-13` |
+| `UIX-02` | Glassmorphism| 6 | ✅ | `UIX-01` |
+| `UIX-03` | Selectable themes| 6 | ✅ | `UIX-01`, `UIX-02` |
+| `UIX-04` | Chat wallpaper| 6 | ✅ | `UIX-02`, `MED-01` |
+| `OBS-01` | Structured server logging| 6 | ✅ | `X-03` ✅ |
+| `OBS-02` | Activity log| 6 | ✅ | `OBS-01` |
+| `OBS-03` | Client error reporting| 6 | ✅ | `OBS-01` |
+| `OBS-04` | Admin activity viewer| 6 | ✅ | `OBS-02`, `OBS-03` |

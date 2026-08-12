@@ -1,6 +1,6 @@
 # Improvements
 
-> **Status: 23 done, 2 partly done, 4 open.** Each heading carries its state.
+> **Status: 25 done, 1 partly done, 3 open.** Each heading carries its state.
 > The open items are the ones that need a product decision, add a dependency, or
 > are projects rather than edits — they were deliberately not bundled into the
 > bug-fix pass. See [Still open](#still-open) at the end.
@@ -182,7 +182,7 @@ Every message the user has ever sent or received is pulled into Node, mapped, an
 
 ---
 
-## BE-I-06 **P2** Add a centralized error handler — 🟡 Partly done
+## BE-I-06 **P2** Add a centralized error handler — ✅ Done
 
 Every controller repeats the same `try/catch` → `console.log` → generic 500 block, and the response shape is inconsistent: some return `{ message }` ([auth.controller.js:45](server/src/controller/auth.controller.js#L45)), others `{ error }` ([message.controller.js:32](server/src/controller/message.controller.js#L32)). The client only ever reads `.message`, so `{ error }` responses surface as the fallback string.
 
@@ -190,7 +190,7 @@ Every controller repeats the same `try/catch` → `console.log` → generic 500 
 
 ---
 
-## BE-I-07 **P2** Replace `console.log` with structured logging — ⬜ Open
+## BE-I-07 **P2** Replace `console.log` with structured logging — ✅ Done
 
 **Files:** throughout — [socket.js:29](server/src/lib/socket.js#L29), [socket.auth.middleware.js:37](server/src/middleware/socket.auth.middleware.js#L37), [emailHandler.js:20](server/src/emails/emailHandler.js#L20), every controller
 
@@ -398,8 +398,8 @@ capability; this file owns hardening of what already exists.
 | **X-04** | CI pipeline | Now worth doing: both workspaces have a real `npm test`. | — |
 | **X-05** | Zod request validation | Adds a dependency and rewrites validation across both controllers — a refactor that would obscure the bug fixes in the same diff. | `PLT-02`, `MSG-04`, `MED-01` |
 | **BE-I-05** | Paginate conversation history | Changes the API contract. Without the matching client UI (FE-I-04) it would silently truncate history, which looks like data loss. | `MSG-08` |
-| **BE-I-06** | Central error handler | *Partly done* — the handler is registered and every response now uses `{ message }`. Controllers still carry their own `try/catch`; collapsing them into an `asyncHandler` is the remaining half. | — |
-| **BE-I-07** | Structured logging (pino) | Adds a dependency and touches every log line. The noisiest offenders were cleaned up meanwhile: per-connection socket logs that printed user names and ids are gone, and `console.log` on error paths is now `console.error`. | — |
+
+
 | **FE-I-02** | Explicit auth guard for protected components | The underlying crash risk is closed by the FE-02 fix and the new error boundary. A `ProtectedRoute` wrapper is a structural change worth making deliberately. | — |
 | **FE-I-04** | Message list windowing | Pairs with BE-I-05; needs a "load older" interaction designed. | `MSG-08` |
 | **FE-I-07** | Audio playback refactor | Cosmetic; the shared-instance cutoff is minor next to everything else here. | `MED-04`, `NTF-06` |

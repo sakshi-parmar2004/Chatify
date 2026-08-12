@@ -16,6 +16,9 @@ A real-time one-to-one chat application. React + Vite on the front end, Express 
 - **Link previews**, unfurled server-side behind SSRF guards
 - **Web push and desktop notifications**, with per-conversation mute and quiet hours
 - **Scoped presence** — only people you share a conversation with see you online
+- **Six themes**, light and dark, stored on your account and applied before first paint
+- **Chat wallpaper** per conversation — presets or your own image, with a legibility scrim
+- **Structured logging**, an activity log, client error reporting and an operator view
 - **Contacts and chats tabs** — browse all users, or just the ones you've talked to
 - **Profile pictures** uploaded to Cloudinary
 - **Welcome email** sent on registration
@@ -26,13 +29,14 @@ A real-time one-to-one chat application. React + Vite on the front end, Express 
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, Vite, React Router, Zustand, Tailwind CSS, daisyUI, lucide-react |
+| Frontend | React 19, Vite, React Router, Zustand, Tailwind CSS, lucide-react |
 | Backend | Node.js ≥ 20, Express 4, Socket.IO 4 |
 | Database | MongoDB (Mongoose 8) |
 | Auth | JWT (`jsonwebtoken`), bcryptjs, `httpOnly` cookies |
 | Media | Cloudinary |
 | Email | Resend |
 | Security | Arcjet (shield, bot detection, sliding-window rate limit) |
+| Logging | pino (levelled, request-correlated, redacted) |
 
 ## Project structure
 
@@ -107,6 +111,13 @@ ARCJET_ENV=development
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:you@yourdomain.com
+
+# Logging (optional) — defaults to debug locally, info in production
+LOG_LEVEL=info
+
+# Operations (optional) — these accounts become admins on next login.
+# The other route in is: node src/scripts/grantAdmin.js <email>
+ADMIN_EMAILS=you@yourdomain.com
 ```
 
 `.env` is gitignored — never commit real credentials.
@@ -194,12 +205,38 @@ The primary surface. Every route proves membership first, and answers `404` rath
 | `DELETE` | `/:id/messages/:messageId` | Tombstone it. Sender within the window, or a group admin at any age. |
 | `PUT` | `/:id/messages/:messageId/reactions` | Toggle a reaction. Body `{ emoji }`. |
 | `PUT` | `/:id/mute` | Mute for `{ minutes }`, or `null` to clear. |
+| `PUT` | `/:id/wallpaper` | Set your own wallpaper for this conversation. Per viewer — invisible to everyone else. |
 | `GET` | `/:id/media` | Attachments shared in the conversation, paginated. |
 | `PUT` | `/:id/pins/:messageId` | Toggle a pinned message. |
 | `PATCH` | `/:id/group` | Rename or re-image. **Admin only.** |
 | `POST` | `/:id/participants` | Add members. **Admin only.** |
 | `DELETE` | `/:id/participants/:userId` | Remove someone (admin) or leave (yourself). |
 | `PUT` / `DELETE` | `/:id/admins/:userId` | Promote or demote. **Admin only.** |
+
+### Preferences — `/api/preferences`
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` / `PUT` | `/` | Theme, reduced transparency, and the default wallpaper. A partial update; an unknown theme is rejected rather than stored. |
+| `GET` | `/activity` | Your own activity log, cursor-paginated. Scoped to the session — there is no id to tamper with. |
+
+### Operations — `/api/admin`
+
+Every route requires the `admin` role, checked server-side per request, and
+answers `404` to anyone without it. **Reads the audit and error collections
+only — never log files** (see `DEC-12`).
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/overview` | Counts and retention windows. Deliberately reports no message or conversation totals. |
+| `GET` | `/audit?action=&actorId=&before=&limit=` | Activity events, newest first. |
+| `GET` | `/errors?before=&limit=` | Client error groups with occurrence counts. |
+
+### Logs — `/api/logs`
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/client` | Report a render crash or unhandled rejection. Authenticated, size-capped, deduplicated, and rate-limited per user — answers `202` when over budget so the client does not retry. |
 
 ### Notifications — `/api/notifications`
 
@@ -300,6 +337,37 @@ npm start
 
 Set every variable from the [Environment variables](#environment-variables) section on your host, with `NODE_ENV=production` and `CLIENT_URL` pointing at your deployed URL.
 
+## Appearance
+
+Six themes — Midnight, Abyss, Aurora, Ember, Daylight and Parchment — chosen from
+the palette button in the sidebar and stored on the account, so the choice follows
+you to another device. An inline script in `index.html` applies the cached theme
+before first paint; React is too late to do it without a visible flash.
+
+Every colour resolves from a CSS custom property (`client/src/styles/themes.css`),
+so a theme swap is one attribute on `<html>`. Adding a theme means adding one
+block there and one entry in `client/src/lib/themes.js` — a test asserts the two
+agree, and the contrast suite will reject a palette that fails AA.
+
+Glass surfaces honour `prefers-reduced-transparency`, and there is an in-app
+toggle as well, because browser support for the media query is thin and not
+everyone wants a system-wide setting.
+
+## Operations
+
+`ADMIN_EMAILS` promotes those accounts on their next login. To grant or revoke
+against a running database:
+
+```bash
+cd server
+node src/scripts/grantAdmin.js someone@example.com
+node src/scripts/grantAdmin.js someone@example.com --revoke
+```
+
+Admins can read the activity log and client error reports at `/admin`. They
+cannot read messages: `AuditEvent` has no field for message content, so that is a
+property of the schema rather than of a filter.
+
 ## Migrating an existing database
 
 Conversations became a first-class collection in `PLT-01`. An existing database
@@ -327,6 +395,7 @@ explains the split.
 The 23 defects recorded in [bugs.md](bugs.md) have been fixed. What remains, tracked in [improvements.md](improvements.md):
 
 - **Request bodies are validated by hand**, so types are not checked as rigorously as a schema validator would (`X-05`).
+- **The design decisions are recorded in [DECISIONS.md](DECISIONS.md)**, including the ones that overrode earlier choices.
 - **The unread digest has no scheduler.** `buildDigestFor` is written and tested, but nothing runs it on a timer — that is a hosting decision (`NTF-03`).
 - **`Message.receiverId` is still written but never read.** The contract step of `PLT-01` that removes it is deliberately deferred: dropping a column is irreversible and should follow a verified backfill.
 - **One Node process only.** The socket map is in memory, so a second process would not share presence or rooms. Deferred, not rejected — the answer is the Socket.IO Redis adapter, and the tripwire is needing a second process.
